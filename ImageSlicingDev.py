@@ -7,6 +7,7 @@
 # forces the camera to stay perpendicular to the XY plane.
 
 import vtk
+from vtkmodules.vtkCommonCore import vtkCommand
 
 def main(path_to_dir):
     # Markup by sphere
@@ -256,17 +257,17 @@ def main(path_to_dir):
     def sphereWidgetInteractorCallbackFunction_AxialPlane(obj, event) -> None:
         newPosition = obj.GetCenter()
 
-        resliceCoronal.Update()
         matrix = resliceCoronal.GetResliceAxes()
         matrix.SetElement(0, 3, center[0])
         matrix.SetElement(1, 3, newPosition[1])
         matrix.SetElement(2, 3, center[2])
+        resliceCoronal.Update()
 
-        resliceSagittal.Update()
         matrix = resliceSagittal.GetResliceAxes()
         matrix.SetElement(0, 3, newPosition[0])
         matrix.SetElement(1, 3, center[1])
         matrix.SetElement(2, 3, center[2])
+        resliceSagittal.Update()
 
         setLinesAxialPlane(newPosition)
 
@@ -286,7 +287,6 @@ def main(path_to_dir):
 
         rendererCoronal.ResetCamera()
         rendererSagittal.ResetCamera()
-
         renderWindow.Render()
 
     def sphereWidgetInteractorCallbackFunction_CoronalPlane(obj, event) -> None:
@@ -296,11 +296,13 @@ def main(path_to_dir):
         matrix.SetElement(0, 3, center[0])
         matrix.SetElement(1, 3, center[1])
         matrix.SetElement(2, 3, newPosition[2])
+        resliceAxial.Update()
 
         matrix = resliceSagittal.GetResliceAxes()
         matrix.SetElement(0, 3, newPosition[0])
         matrix.SetElement(1, 3, center[1])
         matrix.SetElement(2, 3, center[2])
+        resliceSagittal.Update()
 
         # sphereWidgetAxial.SetCenter(newPosition[0], center[1], center[2])
         # setLinesAxialPlane([newPosition[0], center[1], center[2]])
@@ -322,7 +324,6 @@ def main(path_to_dir):
 
         rendererAxial.ResetCamera()
         rendererSagittal.ResetCamera()
-
         renderWindow.Render()
 
     def sphereWidgetInteractorCallbackFunction_SagittalPlane(obj, event) -> None:
@@ -332,11 +333,13 @@ def main(path_to_dir):
         matrix.SetElement(0, 3, center[0])
         matrix.SetElement(1, 3, center[1])
         matrix.SetElement(2, 3, newPosition[2])
+        resliceAxial.Update()
 
         matrix = resliceCoronal.GetResliceAxes()
         matrix.SetElement(0, 3, center[0])
         matrix.SetElement(1, 3, newPosition[1])
         matrix.SetElement(2, 3, center[2])
+        resliceCoronal.Update()
 
         # sphereWidgetAxial.SetCenter(center[0], newPosition[1], center[2])
         # setLinesAxialPlane([center[0], newPosition[1], center[2]])
@@ -356,12 +359,11 @@ def main(path_to_dir):
 
         rendererAxial.ResetCamera()
         rendererSagittal.ResetCamera()
-
         renderWindow.Render()
 
-    sphereWidgetAxial.AddObserver("InteractionEvent", sphereWidgetInteractorCallbackFunction_AxialPlane)
-    sphereWidgetCoronal.AddObserver("InteractionEvent", sphereWidgetInteractorCallbackFunction_CoronalPlane)
-    sphereWidgetSagittal.AddObserver("InteractionEvent", sphereWidgetInteractorCallbackFunction_SagittalPlane)
+    sphereWidgetAxial.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_AxialPlane)
+    sphereWidgetCoronal.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_CoronalPlane)
+    sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_SagittalPlane)
 
     # Create callbacks for slicing the image
     actions = {}
@@ -379,7 +381,6 @@ def main(path_to_dir):
         if actions["Slicing"] == 1:
             deltaY = mouseY - lastY
 
-            resliceAxial.Update()
             sliceSpacing = resliceAxial.GetOutput().GetSpacing()[2]
             # move the center point that we are slicing through
             matrix = resliceAxial.GetResliceAxes()
@@ -387,6 +388,7 @@ def main(path_to_dir):
             matrix.SetElement(0, 3, newPosition[0])
             matrix.SetElement(1, 3, newPosition[1])
             matrix.SetElement(2, 3, newPosition[2])
+            resliceAxial.Update()
 
             actorAxial.SetPosition(center[0], center[1], newPosition[2])
             sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
@@ -407,10 +409,49 @@ def main(path_to_dir):
             renderWindow.Render()
         else:
             interactorStyle.OnMouseMove()
+
+    def mouseWheelEventHandle(obj, event) -> None:
+        sliceSpacing = resliceAxial.GetOutput().GetSpacing()[2]
+        matrix = resliceAxial.GetResliceAxes()
+
+        if event == "MouseWheelForwardEvent":
+            # move the center point that we are slicing through
+            newPosition = matrix.MultiplyPoint((0, 0, sliceSpacing, 1))
+            matrix.SetElement(0, 3, newPosition[0])
+            matrix.SetElement(1, 3, newPosition[1])
+            matrix.SetElement(2, 3, newPosition[2])
+            resliceAxial.Update()
+
+        elif event == "MouseWheelBackwardEvent":
+            # move the center point that we are slicing through
+            newPosition = matrix.MultiplyPoint((0, 0, -sliceSpacing, 1))
+            matrix.SetElement(0, 3, newPosition[0])
+            matrix.SetElement(1, 3, newPosition[1])
+            matrix.SetElement(2, 3, newPosition[2])
+            resliceAxial.Update()
+
+        actorAxial.SetPosition(center[0], center[1], newPosition[2])
+        sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
+        sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2])
+        setLinesAxialPlane([sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2]])
+
+        # Set z-axes position of sphere widget
+        sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
+        sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2])
+        setLinesCoronalPlane([sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2]])
+        
+        sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
+        sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2])
+        setLinesSagittalPlane([sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2]])
+
+        rendererAxial.ResetCamera()
+        renderWindow.Render()
             
-    interactorStyle.AddObserver("MouseMoveEvent", MouseMoveCallback)
-    interactorStyle.AddObserver("LeftButtonPressEvent", ButtonCallback)
-    interactorStyle.AddObserver("LeftButtonReleaseEvent", ButtonCallback)
+    # interactorStyle.AddObserver(vtkCommand.MouseMoveEvent, MouseMoveCallback)
+    # interactorStyle.AddObserver(vtkCommand.LeftButtonPressEvent, ButtonCallback)
+    # interactorStyle.AddObserver(vtkCommand.LeftButtonReleaseEvent, ButtonCallback)
+    interactorStyle.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandle)
+    interactorStyle.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandle)
 
     # Turn on sphere widget
     sphereWidgetAxial.On()
