@@ -11,16 +11,16 @@ import vtk
 def main(path_to_dir):
     # Markup by sphere
     colors = vtk.vtkNamedColors()
-    # sphere = vtk.vtkSphereSource()
-    # mapper = vtk.vtkPolyDataMapper()
-    # property = vtk.vtkProperty()
-    # sphereActor = vtk.vtkActor()
+    sphere = vtk.vtkSphereSource()
+    mapper = vtk.vtkPolyDataMapper()
+    property = vtk.vtkProperty()
+    sphereActor = vtk.vtkActor()
 
-    # sphere.SetRadius(10)
-    # mapper.SetInputConnection(sphere.GetOutputPort())
-    # property.SetColor(colors.GetColor3d("Blue"))
-    # sphereActor.SetMapper(mapper)
-    # sphereActor.SetProperty(property)
+    sphere.SetRadius(10)
+    mapper.SetInputConnection(sphere.GetOutputPort())
+    property.SetColor(colors.GetColor3d("Blue"))
+    sphereActor.SetMapper(mapper)
+    sphereActor.SetProperty(property)
 
     # Markup by two lines - axial plane
     greenLineAxial = vtk.vtkLineSource()
@@ -88,13 +88,13 @@ def main(path_to_dir):
     rendererSagittal = vtk.vtkRenderer()
     renderWindow = vtk.vtkRenderWindow()
     renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-    interactorStyle = vtk.vtkInteractorStyleImage()
-    # interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
+    # interactorStyle = vtk.vtkInteractorStyleImage()
+    interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
 
     # Setup render window
     renderWindow.SetSize(800, 400)
     renderWindow.SetWindowName("MPR Viewer")
-    interactorStyle.SetInteractionModeToImageSlicing()
+    # interactorStyle.SetInteractionModeToImageSlicing()
     renderWindowInteractor.SetInteractorStyle(interactorStyle)
     # renderWindow.SetInteractor(renderWindowInteractor)
     renderWindowInteractor.SetRenderWindow(renderWindow)
@@ -104,32 +104,50 @@ def main(path_to_dir):
     reader.Update()
     imageData = reader.GetOutput()
     center = imageData.GetCenter()
-    bounds = imageData.GetBounds()
-    xMin = bounds[0]
-    xMax = bounds[1]
-    yMin = bounds[2]
-    yMax = bounds[3]
-    zMin = bounds[4]
-    zMax = bounds[5]
+    (xMin, xMax, yMin, yMax, zMin, zMax) = imageData.GetBounds()
+    spacing = imageData.GetSpacing()
 
     # Setup sphere widget
-    sphereWidgetAxial.SetRadius(10)
     sphereWidgetAxial.SetCenter(center)
+    sphereWidgetAxial.SetRadius(10)
     sphereWidgetAxial.SetInteractor(renderWindowInteractor)
     sphereWidgetAxial.SetRepresentationToSurface()
     sphereWidgetAxial.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
 
-    sphereWidgetCoronal.SetRadius(10)
     sphereWidgetCoronal.SetCenter(center)
+    sphereWidgetCoronal.SetRadius(10)
     sphereWidgetCoronal.SetInteractor(renderWindowInteractor)
     sphereWidgetCoronal.SetRepresentationToSurface()
     sphereWidgetCoronal.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
 
-    sphereWidgetSagittal.SetRadius(10)
     sphereWidgetSagittal.SetCenter(center)
+    sphereWidgetSagittal.SetRadius(10)
     sphereWidgetSagittal.SetInteractor(renderWindowInteractor)
     sphereWidgetSagittal.SetRepresentationToSurface()
     sphereWidgetSagittal.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
+
+    # Set position of lines in planes
+    def setLinesAxialPlane(newPosition) -> None:
+        greenLineAxial.SetPoint1(newPosition[0], yMax, newPosition[2])
+        greenLineAxial.SetPoint2(newPosition[0], yMin, newPosition[2])
+        blueLineAxial.SetPoint1(xMin, newPosition[1], newPosition[2])
+        blueLineAxial.SetPoint2(xMax, newPosition[1], newPosition[2])
+
+    def setLinesCoronalPlane(newPosition) -> None:
+        greenLineCoronal.SetPoint1(newPosition[0], newPosition[1], zMin)
+        greenLineCoronal.SetPoint2(newPosition[0], newPosition[1], zMax)
+        redLineCoronal.SetPoint1(xMax, newPosition[1], newPosition[2])
+        redLineCoronal.SetPoint2(xMin, newPosition[1], newPosition[2])
+
+    def setLinesSagittalPlane(newPosition) -> None:
+        blueLineSagittal.SetPoint1(newPosition[0], newPosition[1], zMin)
+        blueLineSagittal.SetPoint2(newPosition[0], newPosition[1], zMax)
+        redLineSagittal.SetPoint1(newPosition[0], yMax, newPosition[2])
+        redLineSagittal.SetPoint2(newPosition[0], yMin, newPosition[2])
+    
+    setLinesAxialPlane(center)
+    setLinesCoronalPlane(center)
+    setLinesSagittalPlane(center)
 
     # Matrices for axial, coronal, and sagittal view orientations
     # Model matrix = Translation matrix
@@ -183,16 +201,10 @@ def main(path_to_dir):
     actorSagittal.SetPosition(center)
     actorSagittal.RotateX(-90)
     actorSagittal.RotateY(-90)
-    # sphereActor.SetPosition(0, 0, 0)
+    sphereActor.SetPosition(0, 0, 0)
     # print(f"sphere position: {actor.GetPosition()}")
     # print(f"image position: {actorAxial.GetPosition()}")
     # print(f"image center position: {actorAxial.GetCenter()}")
-
-    # Setup two lines - axial plane
-    greenLineAxial.SetPoint1(center[0], yMax, center[2])
-    greenLineAxial.SetPoint2(center[0], yMin, center[2])
-    blueLineAxial.SetPoint1(xMin, center[1], center[2])
-    blueLineAxial.SetPoint2(xMax, center[1], center[2])
 
     # Renderers
     rendererAxial.AddActor(actorAxial)
@@ -202,17 +214,11 @@ def main(path_to_dir):
     rendererAxial.SetViewport(0, 0, 0.5, 1)
     rendererAxial.SetBackground(0.3, 0.1, 0.1)
     rendererAxial.GetActiveCamera().SetFocalPoint(center)
-    rendererAxial.GetActiveCamera().SetPosition(center[0], center[1], zMax)
+    rendererAxial.GetActiveCamera().SetPosition(center[0], center[1], zMax + spacing[2])
     rendererAxial.GetActiveCamera().ParallelProjectionOn()
     rendererAxial.GetActiveCamera().SetViewUp(0, 1, 0)
     rendererAxial.ResetCamera()
     sphereWidgetAxial.SetCurrentRenderer(rendererAxial)
-
-    # Setup two lines - coronal plane
-    greenLineCoronal.SetPoint1(center[0], center[1], zMin)
-    greenLineCoronal.SetPoint2(center[0], center[1], zMax)
-    redLineCoronal.SetPoint1(xMax, center[1], center[2])
-    redLineCoronal.SetPoint2(xMin, center[1], center[2])
 
     rendererCoronal.AddActor(actorCoronal)
     # rendererCoronal.AddActor(sphereActor)
@@ -221,17 +227,11 @@ def main(path_to_dir):
     rendererCoronal.SetViewport(0.5, 0, 1, 0.5)
     rendererCoronal.SetBackground(0.1, 0.3, 0.1)
     rendererCoronal.GetActiveCamera().SetFocalPoint(center)
-    rendererCoronal.GetActiveCamera().SetPosition(center[0], yMax, center[2])
+    rendererCoronal.GetActiveCamera().SetPosition(center[0], yMax + spacing[1], center[2])
     rendererCoronal.GetActiveCamera().ParallelProjectionOn()
     rendererCoronal.GetActiveCamera().SetViewUp(0, 0, -1)
     rendererCoronal.ResetCamera()
     sphereWidgetCoronal.SetCurrentRenderer(rendererCoronal)
-
-    # Setup two lines - sagittal plane
-    blueLineSagittal.SetPoint1(center[0], center[1], zMin)
-    blueLineSagittal.SetPoint2(center[0], center[1], zMax)
-    redLineSagittal.SetPoint1(center[0], yMax, center[2])
-    redLineSagittal.SetPoint2(center[0], yMin, center[2])
 
     rendererSagittal.AddActor(actorSagittal)
     # rendererSagittal.AddActor(sphereActor)
@@ -240,7 +240,7 @@ def main(path_to_dir):
     rendererSagittal.SetViewport(0.5, 0.5, 1, 1)
     rendererSagittal.SetBackground(0.1, 0.1, 0.3)
     rendererSagittal.GetActiveCamera().SetFocalPoint(center)
-    rendererSagittal.GetActiveCamera().SetPosition(xMax, center[1], center[2])
+    rendererSagittal.GetActiveCamera().SetPosition(xMax + spacing[0], center[1], center[2])
     rendererSagittal.GetActiveCamera().ParallelProjectionOn()
     rendererSagittal.GetActiveCamera().SetViewUp(0, 0, -1)
     rendererSagittal.ResetCamera()
@@ -251,24 +251,6 @@ def main(path_to_dir):
     renderWindow.AddRenderer(rendererCoronal)
     renderWindow.AddRenderer(rendererSagittal)
     renderWindow.Render()
-
-    def setLinesAxialPlane(newPosition) -> None:
-        greenLineAxial.SetPoint1(newPosition[0], yMax, newPosition[2])
-        greenLineAxial.SetPoint2(newPosition[0], yMin, newPosition[2])
-        blueLineAxial.SetPoint1(xMin, newPosition[1], newPosition[2])
-        blueLineAxial.SetPoint2(xMax, newPosition[1], newPosition[2])
-
-    def setLinesCoronalPlane(newPosition) -> None:
-        greenLineCoronal.SetPoint1(newPosition[0], newPosition[1], zMin)
-        greenLineCoronal.SetPoint2(newPosition[0], newPosition[1], zMax)
-        redLineCoronal.SetPoint1(xMax, newPosition[1], newPosition[2])
-        redLineCoronal.SetPoint2(xMin, newPosition[1], newPosition[2])
-
-    def setLinesSagittalPlane(newPosition) -> None:
-        blueLineSagittal.SetPoint1(newPosition[0], newPosition[1], zMin)
-        blueLineSagittal.SetPoint2(newPosition[0], newPosition[1], zMax)
-        redLineSagittal.SetPoint1(newPosition[0], yMax, newPosition[2])
-        redLineSagittal.SetPoint2(newPosition[0], yMin, newPosition[2])
 
     # Create callback function for sphere widget interactor
     def sphereWidgetInteractorCallbackFunction_AxialPlane(obj, event) -> None:
@@ -286,12 +268,24 @@ def main(path_to_dir):
         matrix.SetElement(1, 3, center[1])
         matrix.SetElement(2, 3, center[2])
 
-        sphereWidgetCoronal.SetCenter(newPosition[0], center[1], center[2])
-        sphereWidgetSagittal.SetCenter(center[0], newPosition[1], center[2])
-
         setLinesAxialPlane(newPosition)
-        setLinesCoronalPlane([newPosition[0], center[1], center[2]])
-        setLinesSagittalPlane([center[0], newPosition[1], center[2]])
+
+        # sphereWidgetCoronal.SetCenter(newPosition[0], center[1], center[2])
+        # setLinesCoronalPlane([newPosition[0], center[1], center[2]])
+
+        # sphereWidgetSagittal.SetCenter(center[0], newPosition[1], center[2])
+        # setLinesSagittalPlane([center[0], newPosition[1], center[2]])
+
+        actorCoronal.SetPosition(center[0], newPosition[1], center[2])
+        sphereWidgetCoronal.SetCenter(newPosition)
+        setLinesCoronalPlane(newPosition)
+
+        actorSagittal.SetPosition(newPosition[0], center[1], center[2])
+        sphereWidgetSagittal.SetCenter(newPosition)
+        setLinesSagittalPlane(newPosition)
+
+        rendererCoronal.ResetCamera()
+        rendererSagittal.ResetCamera()
 
         renderWindow.Render()
 
@@ -308,12 +302,26 @@ def main(path_to_dir):
         matrix.SetElement(1, 3, center[1])
         matrix.SetElement(2, 3, center[2])
 
-        sphereWidgetAxial.SetCenter(newPosition[0], center[1], center[2])
-        sphereWidgetSagittal.SetCenter(center[0], center[1], newPosition[2])
+        # sphereWidgetAxial.SetCenter(newPosition[0], center[1], center[2])
+        # setLinesAxialPlane([newPosition[0], center[1], center[2]])
 
-        setLinesAxialPlane([newPosition[0], center[1], center[2]])
+        # setLinesCoronalPlane(newPosition)
+
+        # sphereWidgetSagittal.SetCenter(center[0], center[1], newPosition[2])
+        # setLinesSagittalPlane([center[0], center[1], newPosition[2]])
+
         setLinesCoronalPlane(newPosition)
-        setLinesSagittalPlane([center[0], center[1], newPosition[2]])
+
+        actorAxial.SetPosition(center[0], center[1], newPosition[2])
+        sphereWidgetAxial.SetCenter(newPosition)
+        setLinesAxialPlane(newPosition)
+        
+        actorSagittal.SetPosition(newPosition[0], center[1], center[2])
+        sphereWidgetSagittal.SetCenter(newPosition)
+        setLinesSagittalPlane(newPosition)
+
+        rendererAxial.ResetCamera()
+        rendererSagittal.ResetCamera()
 
         renderWindow.Render()
 
@@ -330,12 +338,24 @@ def main(path_to_dir):
         matrix.SetElement(1, 3, newPosition[1])
         matrix.SetElement(2, 3, center[2])
 
-        sphereWidgetAxial.SetCenter(center[0], newPosition[1], center[2])
-        sphereWidgetCoronal.SetCenter(center[0], center[1], newPosition[2])
+        # sphereWidgetAxial.SetCenter(center[0], newPosition[1], center[2])
+        # setLinesAxialPlane([center[0], newPosition[1], center[2]])
 
-        setLinesAxialPlane([center[0], newPosition[1], center[2]])
-        setLinesCoronalPlane([center[0], center[1], newPosition[2]])
+        # sphereWidgetCoronal.SetCenter(center[0], center[1], newPosition[2])
+        # setLinesCoronalPlane([center[0], center[1], newPosition[2]])
+
         setLinesSagittalPlane(newPosition)
+
+        actorAxial.SetPosition(center[0], center[1], newPosition[2])
+        sphereWidgetAxial.SetCenter(newPosition)
+        setLinesAxialPlane(newPosition)
+
+        actorCoronal.SetPosition(center[0], newPosition[1], center[2])
+        sphereWidgetCoronal.SetCenter(newPosition)
+        setLinesCoronalPlane(newPosition)
+
+        rendererAxial.ResetCamera()
+        rendererSagittal.ResetCamera()
 
         renderWindow.Render()
 
@@ -368,18 +388,21 @@ def main(path_to_dir):
             matrix.SetElement(1, 3, newPosition[1])
             matrix.SetElement(2, 3, newPosition[2])
 
-            # Get position of sphere widget
+            actorAxial.SetPosition(center[0], center[1], newPosition[2])
             sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
-            sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
-            sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
+            sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2])
+            setLinesAxialPlane([sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2]])
 
             # Set z-axes position of sphere widget
+            sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
             sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2])
+            setLinesCoronalPlane([sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2]])
+            
+            sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
             sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2])
+            setLinesSagittalPlane([sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2]])
 
-            setLinesAxialPlane(sphereWidgetAxialCenter)
-            setLinesCoronalPlane(sphereWidgetCoronalCenter)
-            setLinesSagittalPlane(sphereWidgetSagittalCenter)
+            rendererAxial.ResetCamera()
 
             renderWindow.Render()
         else:
