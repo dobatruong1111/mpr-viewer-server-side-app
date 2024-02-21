@@ -8,20 +8,21 @@
 
 import vtk
 from vtkmodules.vtkCommonCore import vtkCommand
+import math
 
 def main(path_to_dir):
     # Markup by sphere
     colors = vtk.vtkNamedColors()
-    sphere = vtk.vtkSphereSource()
-    mapper = vtk.vtkPolyDataMapper()
-    property = vtk.vtkProperty()
-    sphereActor = vtk.vtkActor()
+    # sphere = vtk.vtkSphereSource()
+    # mapper = vtk.vtkPolyDataMapper()
+    # property = vtk.vtkProperty()
+    # sphereActor = vtk.vtkActor()
 
-    sphere.SetRadius(10)
-    mapper.SetInputConnection(sphere.GetOutputPort())
-    property.SetColor(colors.GetColor3d("Blue"))
-    sphereActor.SetMapper(mapper)
-    sphereActor.SetProperty(property)
+    # sphere.SetRadius(10)
+    # mapper.SetInputConnection(sphere.GetOutputPort())
+    # property.SetColor(colors.GetColor3d("Blue"))
+    # sphereActor.SetMapper(mapper)
+    # sphereActor.SetProperty(property)
 
     # Markup by two lines - axial plane
     greenLineAxial = vtk.vtkLineSource()
@@ -88,14 +89,14 @@ def main(path_to_dir):
     rendererCoronal = vtk.vtkRenderer()
     rendererSagittal = vtk.vtkRenderer()
     renderWindow = vtk.vtkRenderWindow()
+    interactorStyle = vtk.vtkInteractorStyleImage()
+    # interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
     renderWindowInteractor = vtk.vtkRenderWindowInteractor()
-    # interactorStyle = vtk.vtkInteractorStyleImage()
-    interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
 
     # Setup render window
     renderWindow.SetSize(800, 400)
     renderWindow.SetWindowName("MPR Viewer")
-    # interactorStyle.SetInteractionModeToImageSlicing()
+    interactorStyle.SetInteractionModeToImageSlicing()
     renderWindowInteractor.SetInteractorStyle(interactorStyle)
     # renderWindow.SetInteractor(renderWindowInteractor)
     renderWindowInteractor.SetRenderWindow(renderWindow)
@@ -202,7 +203,7 @@ def main(path_to_dir):
     actorSagittal.SetPosition(center)
     actorSagittal.RotateX(-90)
     actorSagittal.RotateY(-90)
-    sphereActor.SetPosition(0, 0, 0)
+    # sphereActor.SetPosition(0, 0, 0)
     # print(f"sphere position: {actor.GetPosition()}")
     # print(f"image position: {actorAxial.GetPosition()}")
     # print(f"image center position: {actorAxial.GetCenter()}")
@@ -365,91 +366,108 @@ def main(path_to_dir):
     sphereWidgetCoronal.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_CoronalPlane)
     sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_SagittalPlane)
 
-    # Create callbacks for slicing the image
-    actions = {}
-    actions["Slicing"] = 0
+    def mouseWheelEventHandle(obj, event) -> None:
+        mousePosition = renderWindowInteractor.GetEventPosition()
+        pokedRenderer = renderWindowInteractor.FindPokedRenderer(mousePosition[0], mousePosition[1])
+        viewId = math.floor(sum(pokedRenderer.GetViewport()))
 
-    def ButtonCallback(obj, event) -> None:
-        if event == "LeftButtonPressEvent":
-            actions["Slicing"] = 1
-        else:
-            actions["Slicing"] = 0
+        sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
+        sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
+        sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
 
-    def MouseMoveCallback(obj, event) -> None:
-        (lastX, lastY) = renderWindowInteractor.GetLastEventPosition()
-        (mouseX, mouseY) = renderWindowInteractor.GetEventPosition()
-        if actions["Slicing"] == 1:
-            deltaY = mouseY - lastY
-
+        # Axial view
+        if (viewId == 1):
             sliceSpacing = resliceAxial.GetOutput().GetSpacing()[2]
-            # move the center point that we are slicing through
             matrix = resliceAxial.GetResliceAxes()
-            newPosition = matrix.MultiplyPoint((0, 0, sliceSpacing*deltaY, 1))
-            matrix.SetElement(0, 3, newPosition[0])
-            matrix.SetElement(1, 3, newPosition[1])
-            matrix.SetElement(2, 3, newPosition[2])
-            resliceAxial.Update()
+            if event == "MouseWheelForwardEvent":
+                # move the center point that we are slicing through
+                newPosition = matrix.MultiplyPoint((0, 0, sliceSpacing, 1))
+                matrix.SetElement(0, 3, newPosition[0])
+                matrix.SetElement(1, 3, newPosition[1])
+                matrix.SetElement(2, 3, newPosition[2])
+                resliceAxial.Update()
+            elif event == "MouseWheelBackwardEvent":
+                # move the center point that we are slicing through
+                newPosition = matrix.MultiplyPoint((0, 0, -sliceSpacing, 1))
+                matrix.SetElement(0, 3, newPosition[0])
+                matrix.SetElement(1, 3, newPosition[1])
+                matrix.SetElement(2, 3, newPosition[2])
+                resliceAxial.Update()
 
             actorAxial.SetPosition(center[0], center[1], newPosition[2])
-            sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
             sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2])
             setLinesAxialPlane([sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2]])
 
             # Set z-axes position of sphere widget
-            sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
             sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2])
             setLinesCoronalPlane([sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2]])
             
-            sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
             sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2])
             setLinesSagittalPlane([sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2]])
 
             rendererAxial.ResetCamera()
+        # Coronal view
+        elif viewId == 2:
+            sliceSpacing = resliceCoronal.GetOutput().GetSpacing()[2]
+            matrix = resliceCoronal.GetResliceAxes()
+            if event == "MouseWheelForwardEvent":
+                # move the center point that we are slicing through
+                newPosition = [matrix.GetElement(0, 3), matrix.GetElement(1, 3) + sliceSpacing, matrix.GetElement(2, 3)]
+                matrix.SetElement(0, 3, newPosition[0])
+                matrix.SetElement(1, 3, newPosition[1])
+                matrix.SetElement(2, 3, newPosition[2])
+                resliceCoronal.Update()
+            elif event == "MouseWheelBackwardEvent":
+                # move the center point that we are slicing through
+                newPosition = [matrix.GetElement(0, 3), matrix.GetElement(1, 3) - sliceSpacing, matrix.GetElement(2, 3)]
+                matrix.SetElement(0, 3, newPosition[0])
+                matrix.SetElement(1, 3, newPosition[1])
+                matrix.SetElement(2, 3, newPosition[2])
+                resliceCoronal.Update()
 
-            renderWindow.Render()
-        else:
-            interactorStyle.OnMouseMove()
+            actorCoronal.SetPosition(center[0], newPosition[1], center[2])
+            sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], newPosition[1], sphereWidgetCoronalCenter[2])
+            setLinesCoronalPlane([sphereWidgetCoronalCenter[0], newPosition[1], sphereWidgetCoronalCenter[2]])
 
-    def mouseWheelEventHandle(obj, event) -> None:
-        sliceSpacing = resliceAxial.GetOutput().GetSpacing()[2]
-        matrix = resliceAxial.GetResliceAxes()
+            sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], newPosition[1], sphereWidgetAxialCenter[2])
+            setLinesAxialPlane([sphereWidgetAxialCenter[0], newPosition[1], sphereWidgetAxialCenter[2]])
 
-        if event == "MouseWheelForwardEvent":
-            # move the center point that we are slicing through
-            newPosition = matrix.MultiplyPoint((0, 0, sliceSpacing, 1))
-            matrix.SetElement(0, 3, newPosition[0])
-            matrix.SetElement(1, 3, newPosition[1])
-            matrix.SetElement(2, 3, newPosition[2])
-            resliceAxial.Update()
+            sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], newPosition[1], sphereWidgetSagittalCenter[2])
+            setLinesSagittalPlane([sphereWidgetSagittalCenter[0], newPosition[1], sphereWidgetSagittalCenter[2]])
 
-        elif event == "MouseWheelBackwardEvent":
-            # move the center point that we are slicing through
-            newPosition = matrix.MultiplyPoint((0, 0, -sliceSpacing, 1))
-            matrix.SetElement(0, 3, newPosition[0])
-            matrix.SetElement(1, 3, newPosition[1])
-            matrix.SetElement(2, 3, newPosition[2])
-            resliceAxial.Update()
+            rendererCoronal.ResetCamera()
+        # Sagittal view
+        elif viewId == 3:
+            sliceSpacing = resliceSagittal.GetOutput().GetSpacing()[2]
+            matrix = resliceSagittal.GetResliceAxes()
+            if event == "MouseWheelForwardEvent":
+                # move the center point that we are slicing through
+                newPosition = [matrix.GetElement(0, 3) + sliceSpacing, matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
+                matrix.SetElement(0, 3, newPosition[0])
+                matrix.SetElement(1, 3, newPosition[1])
+                matrix.SetElement(2, 3, newPosition[2])
+                resliceCoronal.Update()
+            elif event == "MouseWheelBackwardEvent":
+                # move the center point that we are slicing through
+                newPosition = [matrix.GetElement(0, 3) - sliceSpacing, matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
+                matrix.SetElement(0, 3, newPosition[0])
+                matrix.SetElement(1, 3, newPosition[1])
+                matrix.SetElement(2, 3, newPosition[2])
+                resliceCoronal.Update()
 
-        actorAxial.SetPosition(center[0], center[1], newPosition[2])
-        sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
-        sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2])
-        setLinesAxialPlane([sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2]])
+            actorSagittal.SetPosition(newPosition[0], center[1], center[2])
+            sphereWidgetSagittal.SetCenter(newPosition[0], sphereWidgetSagittalCenter[1], sphereWidgetSagittalCenter[2])
+            setLinesSagittalPlane([newPosition[0], sphereWidgetSagittalCenter[1], sphereWidgetSagittalCenter[2]])
 
-        # Set z-axes position of sphere widget
-        sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
-        sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2])
-        setLinesCoronalPlane([sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2]])
-        
-        sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
-        sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2])
-        setLinesSagittalPlane([sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2]])
+            sphereWidgetAxial.SetCenter(newPosition[0], sphereWidgetAxialCenter[1], sphereWidgetAxialCenter[2])
+            setLinesAxialPlane([newPosition[0], sphereWidgetAxialCenter[1], sphereWidgetAxialCenter[2]])
 
-        rendererAxial.ResetCamera()
+            sphereWidgetCoronal.SetCenter(newPosition[0], sphereWidgetCoronalCenter[1], sphereWidgetCoronalCenter[2])
+            setLinesCoronalPlane([newPosition[0], sphereWidgetCoronalCenter[1], sphereWidgetCoronalCenter[2]])
+
+            rendererSagittal.ResetCamera()
         renderWindow.Render()
-            
-    # interactorStyle.AddObserver(vtkCommand.MouseMoveEvent, MouseMoveCallback)
-    # interactorStyle.AddObserver(vtkCommand.LeftButtonPressEvent, ButtonCallback)
-    # interactorStyle.AddObserver(vtkCommand.LeftButtonReleaseEvent, ButtonCallback)
+        
     interactorStyle.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandle)
     interactorStyle.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandle)
 
