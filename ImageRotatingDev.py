@@ -19,6 +19,18 @@ def calcAngleBetweenTwoVectors(a, b, c) -> float:
     degree = vtkmath.DegreesFromRadians(radian) # degree unit
     return degree
 
+def calcTwoPointsOfLine(firstPoint, secondPoint) -> tuple:
+    # Calc point1
+    point1 = [firstPoint[0] * 2 - secondPoint[0], firstPoint[1] * 2 - secondPoint[1], firstPoint[2] * 2 - secondPoint[2]]
+    # i = 0
+    # while i < 1:
+    #     point1 = [point1[0] * 2 - secondPoint[0], point1[1] * 2 - secondPoint[1], point1[2] * 2 - secondPoint[2]]
+    #     i += 1
+
+    # Calc point2
+    point2 = [secondPoint[0] * 2 - point1[0], secondPoint[1] * 2 - point1[1], secondPoint[2] * 2 - point1[2]]
+    return (point1, point2)
+
 def main(path_to_dir):
     # Markup by sphere
     colors = vtk.vtkNamedColors()
@@ -100,14 +112,14 @@ def main(path_to_dir):
     rendererCoronal = vtk.vtkRenderer()
     rendererSagittal = vtk.vtkRenderer()
     renderWindow = vtk.vtkRenderWindow()
-    interactorStyle = vtk.vtkInteractorStyleImage()
-    # interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
+    # interactorStyle = vtk.vtkInteractorStyleImage()
+    interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
     renderWindowInteractor = vtk.vtkRenderWindowInteractor()
 
     # Setup render window
     renderWindow.SetSize(800, 400)
     renderWindow.SetWindowName("MPR Viewer")
-    interactorStyle.SetInteractionModeToImageSlicing()
+    # interactorStyle.SetInteractionModeToImageSlicing()
     renderWindowInteractor.SetInteractorStyle(interactorStyle)
     # renderWindow.SetInteractor(renderWindowInteractor)
     renderWindowInteractor.SetRenderWindow(renderWindow)
@@ -120,29 +132,35 @@ def main(path_to_dir):
     (xMin, xMax, yMin, yMax, zMin, zMax) = imageData.GetBounds()
     spacing = imageData.GetSpacing()
 
-    # Setup sphere widget
+    # Setup widgets in axial view
     sphereWidgetAxial.SetCenter(center)
-    sphereWidgetAxial.SetRadius(10)
+    sphereWidgetAxial.SetRadius(8)
     sphereWidgetAxial.SetInteractor(renderWindowInteractor)
     sphereWidgetAxial.SetRepresentationToSurface()
     sphereWidgetAxial.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
-
     # Markup a position to rotate a green line in axial view
-    sphereWidgetRotateGreenLineAxial = vtk.vtkSphereWidget()
-    sphereWidgetRotateGreenLineAxial.SetCenter((center[0]+center[0])/2, (yMax+center[1])/2, (center[2]+center[2])/2)
-    sphereWidgetRotateGreenLineAxial.SetRadius(5)
-    sphereWidgetRotateGreenLineAxial.SetInteractor(renderWindowInteractor)
-    sphereWidgetRotateGreenLineAxial.SetRepresentationToSurface()
-    sphereWidgetRotateGreenLineAxial.GetSphereProperty().SetColor(colors.GetColor3d("green"))
+    sphereWidgetInteractionRotateGreenLineAxial = vtk.vtkSphereWidget()
+    sphereWidgetInteractionRotateGreenLineAxial.SetRadius(5)
+    sphereWidgetInteractionRotateGreenLineAxial.SetInteractor(renderWindowInteractor)
+    sphereWidgetInteractionRotateGreenLineAxial.SetRepresentationToSurface()
+    sphereWidgetInteractionRotateGreenLineAxial.GetSphereProperty().SetColor(colors.GetColor3d("green"))
+    # Markup a position to rotate a blue line in axial view
+    sphereWidgetInteractionRotateBlueLineAxial = vtk.vtkSphereWidget()
+    sphereWidgetInteractionRotateBlueLineAxial.SetRadius(5)
+    sphereWidgetInteractionRotateBlueLineAxial.SetInteractor(renderWindowInteractor)
+    sphereWidgetInteractionRotateBlueLineAxial.SetRepresentationToSurface()
+    sphereWidgetInteractionRotateBlueLineAxial.GetSphereProperty().SetColor(colors.GetColor3d("blue"))
 
+    # Setup widgets in coronal view
     sphereWidgetCoronal.SetCenter(center)
-    sphereWidgetCoronal.SetRadius(10)
+    sphereWidgetCoronal.SetRadius(8)
     sphereWidgetCoronal.SetInteractor(renderWindowInteractor)
     sphereWidgetCoronal.SetRepresentationToSurface()
     sphereWidgetCoronal.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
 
+    # Setup widgets in sagittal view
     sphereWidgetSagittal.SetCenter(center)
-    sphereWidgetSagittal.SetRadius(10)
+    sphereWidgetSagittal.SetRadius(8)
     sphereWidgetSagittal.SetInteractor(renderWindowInteractor)
     sphereWidgetSagittal.SetRepresentationToSurface()
     sphereWidgetSagittal.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
@@ -166,7 +184,7 @@ def main(path_to_dir):
         redLineSagittal.SetPoint1(newPosition[0], yMax, newPosition[2])
         redLineSagittal.SetPoint2(newPosition[0], yMin, newPosition[2])
     
-    setLinesAxialPlane(center)
+    # setLinesAxialPlane(center)
     # setLinesCoronalPlane(center)
     # setLinesSagittalPlane(center)
 
@@ -220,13 +238,6 @@ def main(path_to_dir):
     #                 0, 0, 0, 1))
 
     # Extract a slice in the desired orientation
-    '''
-        vtkImageReslice(): It can permute, rotate, flip, scale, resample, deform, and pad
-        image data in any combination with reasonably high efficiency
-        1. Application of transformations (either linear or nonlinear) to an image
-        2. Resampling of one data set to match the voxel sampling of a second data set
-        3. Extraction of slices from an image volume
-    '''
     resliceAxial.SetInputData(imageData)
     resliceAxial.SetOutputDimensionality(2)
     resliceAxial.SetResliceAxes(axial)
@@ -252,9 +263,6 @@ def main(path_to_dir):
     actorCoronal.GetMatrix().DeepCopy(coronal)
     actorSagittal.GetMatrix().DeepCopy(sagittal)
     sphereActor.SetPosition(0, 0, 0)
-    # print(f"sphere position: {actor.GetPosition()}")
-    # print(f"image position: {actorAxial.GetPosition()}")
-    # print(f"image center position: {actorAxial.GetCenter()}")
 
     # Renderers
     rendererAxial.AddActor(actorAxial)
@@ -262,21 +270,21 @@ def main(path_to_dir):
     rendererAxial.AddActor(greenLineAxialActor)
     rendererAxial.AddActor(blueLineAxialActor)
     rendererAxial.SetViewport(0, 0, 0.5, 1)
-    # rendererAxial.SetBackground(0.3, 0.1, 0.1)
+    rendererAxial.SetBackground(0.3, 0.1, 0.1)
     rendererAxial.GetActiveCamera().SetFocalPoint(center)
     rendererAxial.GetActiveCamera().SetPosition(center[0], center[1], zMax + spacing[2])
     rendererAxial.GetActiveCamera().ParallelProjectionOn()
     rendererAxial.GetActiveCamera().SetViewUp(0, 1, 0)
     rendererAxial.ResetCamera()
     sphereWidgetAxial.SetCurrentRenderer(rendererAxial)
-    sphereWidgetRotateGreenLineAxial.SetCurrentRenderer(rendererAxial)
+    sphereWidgetInteractionRotateGreenLineAxial.SetCurrentRenderer(rendererAxial)
 
     rendererCoronal.AddActor(actorCoronal)
-    # rendererCoronal.AddActor(sphereActor)
+    rendererCoronal.AddActor(sphereActor)
     # rendererCoronal.AddActor(greenLineCoronalActor)
     # rendererCoronal.AddActor(redLineCoronalActor)
     rendererCoronal.SetViewport(0.5, 0, 1, 0.5)
-    # rendererCoronal.SetBackground(0.1, 0.3, 0.1)
+    rendererCoronal.SetBackground(0.1, 0.3, 0.1)
     rendererCoronal.GetActiveCamera().SetFocalPoint(center)
     rendererCoronal.GetActiveCamera().SetPosition(center[0], yMax + spacing[1], center[2])
     rendererCoronal.GetActiveCamera().ParallelProjectionOn()
@@ -285,11 +293,11 @@ def main(path_to_dir):
     sphereWidgetCoronal.SetCurrentRenderer(rendererCoronal)
 
     rendererSagittal.AddActor(actorSagittal)
-    # rendererSagittal.AddActor(sphereActor)
+    rendererSagittal.AddActor(sphereActor)
     # rendererSagittal.AddActor(blueLineSagittalActor)
     # rendererSagittal.AddActor(redLineSagittalActor)
     rendererSagittal.SetViewport(0.5, 0.5, 1, 1)
-    # rendererSagittal.SetBackground(0.1, 0.1, 0.3)
+    rendererSagittal.SetBackground(0.1, 0.1, 0.3)
     rendererSagittal.GetActiveCamera().SetFocalPoint(center)
     rendererSagittal.GetActiveCamera().SetPosition(xMax + spacing[0], center[1], center[2])
     rendererSagittal.GetActiveCamera().ParallelProjectionOn()
@@ -303,9 +311,25 @@ def main(path_to_dir):
     renderWindow.AddRenderer(rendererSagittal)
     renderWindow.Render()
 
-    # Create callback function for sphere widget interactor
+    # Setup lines of axial view
+    greenLineAxial.SetPoint1(0, yMax, 0)
+    greenLineAxial.SetPoint2(0, -yMax, 0)
+    greenLineAxialActor.SetOrigin(0, 0, 0)
+    greenLineAxialActor.SetPosition(center)
+    blueLineAxial.SetPoint1(-xMax, 0, 0)
+    blueLineAxial.SetPoint2(xMax, 0, 0)
+    blueLineAxialActor.SetOrigin(0, 0, 0)
+    blueLineAxialActor.SetPosition(center)
+    sphereWidgetInteractionRotateGreenLineAxial.SetCenter(center[0], (yMax + center[1])/2, center[2])
+    sphereWidgetInteractionRotateBlueLineAxial.SetCenter((xMin + center[0])/2, center[1], center[2])
+
+    # Create callback function for sphere widget interaction
     sphereWidgetCenterAxial = {
         "oldPosition": sphereWidgetAxial.GetCenter()
+    }
+    currentSphereWidgetCenterRotateLinesAxial = {
+        "green": sphereWidgetInteractionRotateGreenLineAxial.GetCenter(),
+        "blue": sphereWidgetInteractionRotateBlueLineAxial.GetCenter()
     }
 
     def sphereWidgetInteractorCallbackFunction_AxialPlane(obj, event) -> None:
@@ -315,35 +339,34 @@ def main(path_to_dir):
         resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
         resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
         resliceSagittal.Update()
-
         actorSagittal.GetMatrix().DeepCopy(resliceSagittal.GetResliceAxes())
         sphereWidgetSagittal.SetCenter(newPosition)
+        rendererSagittal.ResetCamera()
 
         resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
         resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
         resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
         resliceCoronal.Update()
-
         actorCoronal.GetMatrix().DeepCopy(resliceCoronal.GetResliceAxes())
         sphereWidgetCoronal.SetCenter(newPosition)
+        rendererCoronal.ResetCamera()
 
-        # Set lines in axial plane
-        translate = [newPosition[0] - sphereWidgetCenterAxial["oldPosition"][0], newPosition[1] - sphereWidgetCenterAxial["oldPosition"][1], newPosition[2] - sphereWidgetCenterAxial["oldPosition"][2]]
-        
-        point1 = greenLineAxial.GetPoint1()
-        greenLineAxial.SetPoint1(point1[0] + translate[0], point1[1] + translate[1], point1[2] + translate[2])
-        point2 = greenLineAxial.GetPoint2()
-        greenLineAxial.SetPoint2(point2[0] + translate[0], point2[1] + translate[1], point2[2] + translate[2])
+        # Setup lines in axial view
+        translatePosition = [newPosition[0] - sphereWidgetCenterAxial["oldPosition"][0], newPosition[1] - sphereWidgetCenterAxial["oldPosition"][1], newPosition[2] - sphereWidgetCenterAxial["oldPosition"][2]]
+        greenLineAxialActor.SetPosition(newPosition)
+        blueLineAxialActor.SetPosition(newPosition)
 
-        sphereWidgetRotateGreenLineAxial.SetCenter((point1[0] + newPosition[0])/2, (point1[1] + newPosition[1])/2, (point1[2] + newPosition[2])/2)
+        currentPosition = sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
+        center = [currentPosition[0] + translatePosition[0], currentPosition[1] + translatePosition[1], currentPosition[2] + translatePosition[2]]
+        sphereWidgetInteractionRotateGreenLineAxial.SetCenter(center)
+        currentSphereWidgetCenterRotateLinesAxial["green"] = center
 
-        point1 = blueLineAxial.GetPoint1()
-        blueLineAxial.SetPoint1(point1[0] + translate[0], point1[1] + translate[1], point1[2] + translate[2])
-        point2 = blueLineAxial.GetPoint2()
-        blueLineAxial.SetPoint2(point2[0] + translate[0], point2[1] + translate[1], point2[2] + translate[2])
+        currentPosition = sphereWidgetInteractionRotateBlueLineAxial.GetCenter()
+        center = [currentPosition[0] + translatePosition[0], currentPosition[1] + translatePosition[1], currentPosition[2] + translatePosition[2]]
+        sphereWidgetInteractionRotateBlueLineAxial.SetCenter(center)
+        currentSphereWidgetCenterRotateLinesAxial["blue"] = center
 
         sphereWidgetCenterAxial["oldPosition"] = newPosition
-
         renderWindow.Render()
 
     def sphereWidgetInteractorCallbackFunction_CoronalPlane(obj, event) -> None:
@@ -404,71 +427,48 @@ def main(path_to_dir):
         rendererSagittal.ResetCamera()
         renderWindow.Render()
 
-    currentRotateAngle = {
-        "sagittal": 0,
-        "coronal": 0
-    }
-
-    def callbackFunction(obj, event) -> None:
-        # Get positions
-        sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
+    def interactionEventHandleRotateGreenLine_AxialPlane(obj, event) -> None:
+        sphereWidgetCenterAxial = sphereWidgetAxial.GetCenter()
         newPosition = obj.GetCenter()
-        
+
         # Calculate rotation angle (degree unit)
-        angle = calcAngleBetweenTwoVectors([sphereWidgetAxialCenter[0], yMax, sphereWidgetAxialCenter[2]], sphereWidgetAxialCenter, newPosition)
-        angle = 360 - angle if newPosition[0] < sphereWidgetAxialCenter[0] else angle
+        # angle = calcAngleBetweenTwoVectors([sphereWidgetCenterAxial[0], yMax, sphereWidgetCenterAxial[2]], sphereWidgetCenterAxial, newPosition)
+        # angle = 360 - angle if newPosition[0] < sphereWidgetCenterAxial[0] else angle
+        angle = calcAngleBetweenTwoVectors(currentSphereWidgetCenterRotateLinesAxial["green"], sphereWidgetCenterAxial, newPosition)
 
         # Transform matrix (rotate y-axes)
         transformMatrix.DeepCopy(
             (math.cos(math.radians(angle)), 0, math.sin(math.radians(angle)), 0, 
-             0, 1, 0, 0, 
-             -math.sin(math.radians(angle)), 0, math.cos(math.radians(angle)), 0, 
-             0, 0, 0, 1)
+            0, 1, 0, 0, 
+            -math.sin(math.radians(angle)), 0, math.cos(math.radians(angle)), 0, 
+            0, 0, 0, 1)
         )
         
         # Calculate transform matrix (sagittal plane)
-        vtk.vtkMatrix4x4.Multiply4x4(originSagittal, transformMatrix, resultMatrix)
+        vtk.vtkMatrix4x4.Multiply4x4(sagittal, transformMatrix, resultMatrix)
         resliceSagittal.GetResliceAxes().DeepCopy(resultMatrix)
         resliceSagittal.Update()
-
         actorSagittal.GetMatrix().DeepCopy(resultMatrix)
-
-        rendererSagittal.GetActiveCamera().Azimuth(-currentRotateAngle["sagittal"])
         rendererSagittal.GetActiveCamera().Azimuth(angle)
-        currentRotateAngle["sagittal"] = angle
         rendererSagittal.ResetCamera()
 
         # Calculate transform matrix (coronal plane)
-        vtk.vtkMatrix4x4.Multiply4x4(originCoronal, transformMatrix, resultMatrix)
+        vtk.vtkMatrix4x4.Multiply4x4(coronal, transformMatrix, resultMatrix)
         resliceCoronal.GetResliceAxes().DeepCopy(resultMatrix)
         resliceCoronal.Update()
-
         actorCoronal.GetMatrix().DeepCopy(resultMatrix)
-
-        rendererCoronal.GetActiveCamera().Azimuth(-currentRotateAngle["coronal"])
         rendererCoronal.GetActiveCamera().Azimuth(angle)
-        currentRotateAngle["coronal"] = angle
         rendererCoronal.ResetCamera()
 
-        # Set lines in axial view
-        greenLinePoint1Axial = [newPosition[0] * 2 - sphereWidgetAxialCenter[0], newPosition[1] * 2 - sphereWidgetAxialCenter[1], newPosition[2] * 2 - sphereWidgetAxialCenter[2]]
-        greenLinePoint2Axial = [sphereWidgetAxialCenter[0] * 2 - greenLinePoint1Axial[0], sphereWidgetAxialCenter[1] * 2 - greenLinePoint1Axial[1], sphereWidgetAxialCenter[2] * 2 - greenLinePoint1Axial[2]]
-        greenLineAxial.SetPoint1(greenLinePoint1Axial)
-        greenLineAxial.SetPoint2(greenLinePoint2Axial)
+        # Setup lines in axial view
+        greenLineAxialActor.RotateZ(-angle)
+        blueLineAxialActor.RotateZ(-angle)
 
-        point1 = [sphereWidgetAxialCenter[0] * 2 - newPosition[0], sphereWidgetAxialCenter[1] * 2 - sphereWidgetAxialCenter[1], newPosition[2]]
-        point1 = [newPosition[1], point1[0], newPosition[2]]
-        point2 = [sphereWidgetAxialCenter[0] * 2 - point1[0], sphereWidgetAxialCenter[1] * 2 - point1[1], newPosition[2]]
-        
-        point1 = [point1[0] * 2 - sphereWidgetAxialCenter[0], point1[1] * 2 - sphereWidgetAxialCenter[1], newPosition[2]]
-        point2 = [point2[0] * 2 - sphereWidgetAxialCenter[0], point2[1] * 2 - sphereWidgetAxialCenter[1], newPosition[2]]
-        blueLineAxial.SetPoint1(point1)
-        blueLineAxial.SetPoint2(point2)
-
+        currentSphereWidgetCenterRotateLinesAxial["green"] = newPosition
         renderWindow.Render()
-    
+
     sphereWidgetAxial.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_AxialPlane)
-    sphereWidgetRotateGreenLineAxial.AddObserver(vtkCommand.InteractionEvent, callbackFunction)
+    sphereWidgetInteractionRotateGreenLineAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleRotateGreenLine_AxialPlane)
     # sphereWidgetCoronal.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_CoronalPlane)
     # sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, sphereWidgetInteractorCallbackFunction_SagittalPlane)
 
@@ -579,7 +579,8 @@ def main(path_to_dir):
 
     # Turn on sphere widget
     sphereWidgetAxial.On()
-    sphereWidgetRotateGreenLineAxial.On()
+    sphereWidgetInteractionRotateGreenLineAxial.On()
+    # sphereWidgetInteractionRotateBlueLineAxial.On()
     sphereWidgetCoronal.On()
     sphereWidgetSagittal.On()
 

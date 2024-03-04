@@ -1,61 +1,46 @@
 import vtk
 
-def main():
-    
-    colors = vtk.vtkNamedColors()
+# Tạo vtkLineSource
+line_source = vtk.vtkLineSource()
+line_source.SetPoint1(-1, 0, 0)  # Điểm đầu của đường thẳng
+line_source.SetPoint2(1, 0, 0)   # Điểm cuối của đường thẳng
 
-    # Sphere
-    sphere = vtk.vtkSphereSource()
-    sphereMapper = vtk.vtkPolyDataMapper()
-    sphereActor = vtk.vtkActor()
+# Tính trung điểm của đường thẳng
+center = [(line_source.GetPoint1()[i] + line_source.GetPoint2()[i]) / 2 for i in range(3)]
 
-    sphere.SetRadius(5)
-    sphereMapper.SetInputConnection(sphere.GetOutputPort())
-    sphereActor.SetMapper(sphereMapper)
-    sphereActor.GetProperty().SetColor(colors.GetColor3d("tomato"))
-    sphereActor.SetPosition(0, 0, 0)
+# Tạo ma trận biến đổi để xoay quanh trục y 45 độ
+transform = vtk.vtkTransform()
+# transform.Translate(center)    # Dịch chuyển tới trung điểm của đường thẳng
+# transform.RotateY(45)          # Xoay quanh trục y 45 độ
+# transform.Translate(-center)   # Dịch chuyển trở lại vị trí ban đầu
 
-    # Line
-    line = vtk.vtkLineSource()
-    transform = vtk.vtkTransform()
-    transformPolyDataFilter = vtk.vtkTransformPolyDataFilter()
-    mapper = vtk.vtkPolyDataMapper()
-    actor = vtk.vtkActor()
-    renderer = vtk.vtkRenderer()
-    renderWindow = vtk.vtkRenderWindow()
-    interactorStyle = vtk.vtkInteractorStyleTrackballCamera()
-    renderWindowInteractor = vtk.vtkRenderWindowInteractor()
+# Tạo một vtkTransformPolyDataFilter để áp dụng transform vào đường thẳng
+transform_filter = vtk.vtkTransformPolyDataFilter()
+transform_filter.SetInputConnection(line_source.GetOutputPort())
+transform_filter.SetTransform(transform)
+transform_filter.Update()
 
-    # Setup render window
-    renderWindow.SetSize(800, 400)
-    renderWindow.SetWindowName("Line")
-    renderWindowInteractor.SetInteractorStyle(interactorStyle)
-    renderWindowInteractor.SetRenderWindow(renderWindow)
+# Tạo mapper để hiển thị đường thẳng sau khi xoay
+mapper = vtk.vtkPolyDataMapper()
+mapper.SetInputConnection(transform_filter.GetOutputPort())
 
-    line.SetPoint1(0, 0, 0)
-    line.SetPoint1(0, 100, 0)
+# Tạo actor để hiển thị
+actor = vtk.vtkActor()
+actor.SetMapper(mapper)
 
-    transform.RotateX(45)
+# Tạo renderer và hiển thị đối tượng
+renderer = vtk.vtkRenderer()
+renderer.AddActor(actor)
 
-    transformPolyDataFilter.SetInputConnection(line.GetOutputPort())
-    transformPolyDataFilter.SetTransform(transform)
-    transformPolyDataFilter.Update()
+# Tạo cửa sổ đồ họa
+render_window = vtk.vtkRenderWindow()
+render_window.SetSize(800, 600)
+render_window.AddRenderer(renderer)
 
-    mapper.SetInputConnection(transformPolyDataFilter.GetOutputPort())
+# Tạo cửa sổ đồ họa tương tác
+interactor = vtk.vtkRenderWindowInteractor()
+interactor.SetRenderWindow(render_window)
 
-    actor.SetMapper(mapper)
-    actor.GetProperty().SetColor(colors.GetColor3d("Green"))
-
-    renderer.AddActor(actor)
-    renderer.AddActor(sphereActor)
-    renderer.SetBackground(0.1, 0.1, 0.3)
-
-    print(line.GetPoint1())
-    print(line.GetPoint2())
-
-    renderWindow.AddRenderer(renderer)
-    renderWindow.Render()
-    renderWindowInteractor.Start()
-
-if __name__ == "__main__":
-    main()
+# Hiển thị cửa sổ đồ họa
+render_window.Render()
+interactor.Start()
