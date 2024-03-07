@@ -130,7 +130,7 @@ def main(path_to_dir):
 
     # Setup render window
     renderWindow.SetSize(800, 400)
-    renderWindow.SetWindowName("MPR Viewer")
+    renderWindow.SetWindowName("3D MPR")
     # interactorStyle.SetInteractionModeToImageSlicing()
     renderWindowInteractor.SetInteractorStyle(interactorStyle)
     # renderWindow.SetInteractor(renderWindowInteractor)
@@ -158,12 +158,6 @@ def main(path_to_dir):
     sphereWidgetInteractionRotateGreenLineAxial.SetRepresentationToSurface()
     sphereWidgetInteractionRotateGreenLineAxial.GetSphereProperty().SetColor(colors.GetColor3d("green"))
     sphereWidgetInteractionRotateGreenLineAxial.GetSelectedSphereProperty().SetOpacity(0)
-    # Markup a position to rotate a blue line in axial view
-    # sphereWidgetInteractionRotateBlueLineAxial = vtk.vtkSphereWidget()
-    # sphereWidgetInteractionRotateBlueLineAxial.SetRadius(5)
-    # sphereWidgetInteractionRotateBlueLineAxial.SetInteractor(renderWindowInteractor)
-    # sphereWidgetInteractionRotateBlueLineAxial.SetRepresentationToSurface()
-    # sphereWidgetInteractionRotateBlueLineAxial.GetSphereProperty().SetColor(colors.GetColor3d("blue"))
 
     # Setup widgets in coronal view
     sphereWidgetCoronal.SetCenter(center)
@@ -178,29 +172,6 @@ def main(path_to_dir):
     sphereWidgetSagittal.SetInteractor(renderWindowInteractor)
     sphereWidgetSagittal.SetRepresentationToSurface()
     sphereWidgetSagittal.GetSphereProperty().SetColor(colors.GetColor3d("Tomato"))
-
-    # Set position of lines in views
-    def setLinesAxialPlane(newPosition) -> None:
-        greenLineAxial.SetPoint1(newPosition[0], yMax, newPosition[2])
-        greenLineAxial.SetPoint2(newPosition[0], yMin, newPosition[2])
-        blueLineAxial.SetPoint1(xMin, newPosition[1], newPosition[2])
-        blueLineAxial.SetPoint2(xMax, newPosition[1], newPosition[2])
-
-    def setLinesCoronalPlane(newPosition) -> None:
-        greenLineCoronal.SetPoint1(newPosition[0], newPosition[1], zMin)
-        greenLineCoronal.SetPoint2(newPosition[0], newPosition[1], zMax)
-        redLineCoronal.SetPoint1(xMax, newPosition[1], newPosition[2])
-        redLineCoronal.SetPoint2(xMin, newPosition[1], newPosition[2])
-
-    def setLinesSagittalPlane(newPosition) -> None:
-        blueLineSagittal.SetPoint1(newPosition[0], newPosition[1], zMin)
-        blueLineSagittal.SetPoint2(newPosition[0], newPosition[1], zMax)
-        redLineSagittal.SetPoint1(newPosition[0], yMax, newPosition[2])
-        redLineSagittal.SetPoint2(newPosition[0], yMin, newPosition[2])
-    
-    # setLinesAxialPlane(center)
-    # setLinesCoronalPlane(center)
-    # setLinesSagittalPlane(center)
 
     # Matrices for axial, coronal, and sagittal view orientations
     # Model matrix = Translation matrix
@@ -293,8 +264,8 @@ def main(path_to_dir):
 
     rendererSagittal.AddActor(actorSagittal)
     rendererSagittal.AddActor(sphereActor)
-    # rendererSagittal.AddActor(blueLineSagittalActor)
-    # rendererSagittal.AddActor(redLineSagittalActor)
+    rendererSagittal.AddActor(blueLineSagittalActor)
+    rendererSagittal.AddActor(redLineSagittalActor)
     rendererSagittal.SetViewport(0.5, 0.5, 1, 1)
     rendererSagittal.SetBackground(0.1, 0.1, 0.3)
     rendererSagittal.GetActiveCamera().SetFocalPoint(center)
@@ -310,7 +281,7 @@ def main(path_to_dir):
     renderWindow.AddRenderer(rendererSagittal)
     renderWindow.Render()
 
-    # Setup lines in axial view
+    # Set lines in axial view
     greenLineAxial.SetPoint1(0, yMax, 0)
     greenLineAxial.SetPoint2(0, -yMax, 0)
     greenLineAxialActor.SetOrigin(0, 0, 0)
@@ -322,7 +293,7 @@ def main(path_to_dir):
     sphereWidgetInteractionRotateGreenLineAxial.SetCenter(center[0], (yMax + center[1])/2, center[2])
     # sphereWidgetInteractionRotateBlueLineAxial.SetCenter((xMin + center[0])/2, center[1], center[2])
 
-    # Setup lines in coronal view
+    # Set lines in coronal view
     greenLineCoronal.SetPoint1(0, 0, -zMax)
     greenLineCoronal.SetPoint2(0, 0, zMax)
     greenLineCoronalActor.SetOrigin(0, 0, 0)
@@ -332,9 +303,21 @@ def main(path_to_dir):
     redLineCoronalActor.SetOrigin(0, 0, 0)
     redLineCoronalActor.SetPosition(center)
 
+    # Set lines in coronal view
+    blueLineSagittal.SetPoint1(0, 0, -zMax)
+    blueLineSagittal.SetPoint2(0, 0, zMax)
+    blueLineSagittalActor.SetOrigin(0, 0, 0)
+    blueLineSagittalActor.SetPosition(center)
+    redLineSagittal.SetPoint1(0, -yMax, 0)
+    redLineSagittal.SetPoint2(0, yMax, 0)
+    redLineSagittalActor.SetOrigin(0, 0, 0)
+    redLineSagittalActor.SetPosition(center)
+
     # Create callback function for sphere widget interaction
-    sphereWidgetCenterAxial = {
-        "center": sphereWidgetAxial.GetCenter()
+    currentSphereWidgetCenter = {
+        "axial": sphereWidgetAxial.GetCenter(),
+        "coronal": sphereWidgetCoronal.GetCenter(),
+        "sagittal": sphereWidgetSagittal.GetCenter()
     }
     currentSphereWidgetCenterRotateLinesAxial = {
         "green": sphereWidgetInteractionRotateGreenLineAxial.GetCenter(),
@@ -343,97 +326,138 @@ def main(path_to_dir):
 
     def interactionEventHandleTranslateLines_AxialView(obj, event) -> None:
         newPosition = obj.GetCenter()
-        translatePosition = [newPosition[i] - sphereWidgetCenterAxial["center"][i] for i in range(3)]
-
-        resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
-        resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
-        resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-        sphereWidgetSagittal.SetCenter(newPosition)
-        cameraPosition = rendererSagittal.GetActiveCamera().GetPosition()
-        rendererSagittal.GetActiveCamera().SetPosition(cameraPosition[0] + translatePosition[0], cameraPosition[1], cameraPosition[2])
-
-        resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
-        resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
-        resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-        sphereWidgetCoronal.SetCenter(newPosition)
-        greenLineCoronalActor.SetPosition(newPosition)
-        redLineCoronalActor.SetPosition(newPosition)
-        cameraPosition = rendererCoronal.GetActiveCamera().GetPosition()
-        rendererCoronal.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1] + translatePosition[1], cameraPosition[2])
+        translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
 
         # Translate lines in axial view
         greenLineAxialActor.SetPosition(newPosition)
         blueLineAxialActor.SetPosition(newPosition)
-
-        newCenter = [sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translatePosition[i] for i in range(3)]
+        # Translate a rotation point on green line in axial view
+        newCenter = [sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)]
         sphereWidgetInteractionRotateGreenLineAxial.SetCenter(newCenter)
         currentSphereWidgetCenterRotateLinesAxial["green"] = newPosition
-
-        # center = [sphereWidgetInteractionRotateBlueLineAxial.GetCenter()[i] + translatePosition[i] for i in range(3)]
-        # sphereWidgetInteractionRotateBlueLineAxial.SetCenter(center)
-        # currentSphereWidgetCenterRotateLinesAxial["blue"] = center
-
-        sphereWidgetCenterAxial["center"] = newPosition
-        renderWindow.Render()
-
-    def interactionEventHandleTranslateLines_CoronalView(obj, event) -> None:
-        newPosition = obj.GetCenter()
-
-        resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
-        resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
-        resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
-        sphereWidgetAxial.SetCenter(newPosition)
-        greenLineAxialActor.SetPosition(newPosition)
-        blueLineAxialActor.SetPosition(newPosition)
 
         resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
         resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
         resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+        # Translate sphere widget in sagittal view
         sphereWidgetSagittal.SetCenter(newPosition)
+        # Translate lines in sagital view
+        blueLineSagittalActor.SetPosition(newPosition)
+        redLineSagittalActor.SetPosition(newPosition)
+        # Set position of camera in sagittal view
+        cameraPosition = rendererSagittal.GetActiveCamera().GetPosition()
+        rendererSagittal.GetActiveCamera().SetPosition(cameraPosition[0] + translationInterval[0], cameraPosition[1], cameraPosition[2])
+
+        resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+        resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+        resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+        # Translate sphere widget in coronal view
+        sphereWidgetCoronal.SetCenter(newPosition)
+        # Translate lines in coronal view
+        greenLineCoronalActor.SetPosition(newPosition)
+        redLineCoronalActor.SetPosition(newPosition)
+        # Set position of camera in coronal view
+        cameraPosition = rendererCoronal.GetActiveCamera().GetPosition()
+        rendererCoronal.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1] + translationInterval[1], cameraPosition[2])
+
+        currentSphereWidgetCenter["axial"] = newPosition
+        currentSphereWidgetCenter["sagittal"] = newPosition
+        currentSphereWidgetCenter["coronal"] = newPosition
+        renderWindow.Render()
+
+    def interactionEventHandleTranslateLines_CoronalView(obj, event) -> None:
+        newPosition = obj.GetCenter()
+        translationInterval = [newPosition[i] - currentSphereWidgetCenter["coronal"][i] for i in range(3)]
 
         # Translate lines in coronal view
         greenLineCoronalActor.SetPosition(newPosition)
         redLineCoronalActor.SetPosition(newPosition)
 
+        resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
+        resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
+        resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
+        # Translate sphere widget in axial view
+        sphereWidgetAxial.SetCenter(newPosition)
+        # Translate lines in axial view
+        greenLineAxialActor.SetPosition(newPosition)
+        blueLineAxialActor.SetPosition(newPosition)
+        # Translate a rotation point on green line in axial view
+        newCenter = [sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)]
+        sphereWidgetInteractionRotateGreenLineAxial.SetCenter(newCenter)
+        currentSphereWidgetCenterRotateLinesAxial["green"] = newPosition
+        # Set position of camera in axial view
+        cameraPosition = rendererAxial.GetActiveCamera().GetPosition()
+        rendererAxial.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1], cameraPosition[2] + translationInterval[2])
+
+        resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+        resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+        resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+        # Translate sphere widget in sagittal view
+        sphereWidgetSagittal.SetCenter(newPosition)
+        # Translate lines in sagittal view
+        blueLineSagittalActor.SetPosition(newPosition)
+        redLineSagittalActor.SetPosition(newPosition)
+        # Set position of camera in sagittal view
+        cameraPosition = rendererSagittal.GetActiveCamera().GetPosition()
+        rendererSagittal.GetActiveCamera().SetPosition(cameraPosition[0] + translationInterval[0], cameraPosition[1], cameraPosition[2])
+
+        currentSphereWidgetCenter["axial"] = newPosition
+        currentSphereWidgetCenter["sagittal"] = newPosition
+        currentSphereWidgetCenter["coronal"] = newPosition
         renderWindow.Render()
 
     def interactionEventHandleTranslateLines_SagittalView(obj, event) -> None:
         newPosition = obj.GetCenter()
+        translationInterval = [newPosition[i] - currentSphereWidgetCenter["sagittal"][i] for i in range(3)]
 
-        matrix = resliceAxial.GetResliceAxes()
-        matrix.SetElement(0, 3, center[0])
-        matrix.SetElement(1, 3, center[1])
-        matrix.SetElement(2, 3, newPosition[2])
-        resliceAxial.Update()
+        # Translate lines in sagittal view
+        blueLineSagittalActor.SetPosition(newPosition)
+        redLineSagittalActor.SetPosition(newPosition)
 
-        matrix = resliceCoronal.GetResliceAxes()
-        matrix.SetElement(0, 3, center[0])
-        matrix.SetElement(1, 3, newPosition[1])
-        matrix.SetElement(2, 3, center[2])
-        resliceCoronal.Update()
-
-        setLinesSagittalPlane(newPosition)
-
-        actorAxial.SetPosition(center[0], center[1], newPosition[2])
+        resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
+        resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
+        resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
+        # Translate sphere widget in axial view
         sphereWidgetAxial.SetCenter(newPosition)
-        setLinesAxialPlane(newPosition)
+       # Translate lines in axial view
+        greenLineAxialActor.SetPosition(newPosition)
+        blueLineAxialActor.SetPosition(newPosition)
+        # Translate a rotation point on green line in axial view
+        newCenter = [sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)]
+        sphereWidgetInteractionRotateGreenLineAxial.SetCenter(newCenter)
+        currentSphereWidgetCenterRotateLinesAxial["green"] = newPosition
+        # Set position of camera in axial view
+        cameraPosition = rendererAxial.GetActiveCamera().GetPosition()
+        rendererAxial.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1], cameraPosition[2] + translationInterval[2])
 
-        actorCoronal.SetPosition(center[0], newPosition[1], center[2])
+        resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+        resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+        resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+        # Translate sphere widget in coronal view
         sphereWidgetCoronal.SetCenter(newPosition)
-        setLinesCoronalPlane(newPosition)
+        # Translate lines in coronal view
+        greenLineCoronalActor.SetPosition(newPosition)
+        redLineCoronalActor.SetPosition(newPosition)
+        # Set position of camera in coronal view
+        cameraPosition = rendererCoronal.GetActiveCamera().GetPosition()
+        rendererCoronal.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1] + translationInterval[1], cameraPosition[2])
 
-        rendererAxial.ResetCamera()
-        rendererSagittal.ResetCamera()
+        currentSphereWidgetCenter["axial"] = newPosition
+        currentSphereWidgetCenter["sagittal"] = newPosition
+        currentSphereWidgetCenter["coronal"] = newPosition
         renderWindow.Render()
 
     def interactionEventHandleRotateGreenLine_AxialView(obj, event) -> None:
-        sphereWidgetCenterAxial = sphereWidgetAxial.GetCenter()
         newPosition = obj.GetCenter()
 
         # Calculate rotation angle (degree unit)
-        angle = calcAngleBetweenTwoVectors(currentSphereWidgetCenterRotateLinesAxial["green"], sphereWidgetCenterAxial, newPosition)
+        angle = calcAngleBetweenTwoVectors(currentSphereWidgetCenterRotateLinesAxial["green"], currentSphereWidgetCenter["axial"], newPosition)
 
-        # Create transform matrix (rotate y-axes)
+        # Rotate lines in axial view
+        greenLineAxialActor.RotateZ(-angle)
+        blueLineAxialActor.RotateZ(-angle)
+
+        # Create rotate matrix (y-axes)
         transformMatrix.DeepCopy(
             (math.cos(math.radians(angle)), 0, math.sin(math.radians(angle)), 0, 
             0, 1, 0, 0, 
@@ -441,14 +465,15 @@ def main(path_to_dir):
             0, 0, 0, 1)
         )
         
-        # Calculate transform matrix (sagittal view)
+        # Set transform matrix (sagittal view)
         vtk.vtkMatrix4x4.Multiply4x4(resliceSagittal.GetResliceAxes(), transformMatrix, resultMatrix)
         for i in range(4):
             for j in range(4):
                 resliceSagittal.GetResliceAxes().SetElement(i, j, resultMatrix.GetElement(i, j))
+        redLineSagittalActor.RotateZ(-angle)
         rendererSagittal.GetActiveCamera().Azimuth(angle)
 
-        # Calculate transform matrix (coronal view)
+        # Set transform matrix (coronal view)
         vtk.vtkMatrix4x4.Multiply4x4(resliceCoronal.GetResliceAxes(), transformMatrix, resultMatrix)
         for i in range(4):
             for j in range(4):
@@ -456,118 +481,159 @@ def main(path_to_dir):
         redLineCoronalActor.RotateZ(-angle)
         rendererCoronal.GetActiveCamera().Azimuth(angle)
 
-        # Rotate lines in axial view
-        greenLineAxialActor.RotateZ(-angle)
-        blueLineAxialActor.RotateZ(-angle)
-
         currentSphereWidgetCenterRotateLinesAxial["green"] = newPosition
         renderWindow.Render()
 
     sphereWidgetAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_AxialView)
     sphereWidgetInteractionRotateGreenLineAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleRotateGreenLine_AxialView)
     sphereWidgetCoronal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_CoronalView)
-    # sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_SagittalView)
+    sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_SagittalView)
 
     def mouseWheelEventHandle(obj, event) -> None:
         mousePosition = renderWindowInteractor.GetEventPosition()
         pokedRenderer = renderWindowInteractor.FindPokedRenderer(mousePosition[0], mousePosition[1])
         viewId = math.floor(sum(pokedRenderer.GetViewport()))
 
-        sphereWidgetAxialCenter = sphereWidgetAxial.GetCenter()
-        sphereWidgetCoronalCenter = sphereWidgetCoronal.GetCenter()
-        sphereWidgetSagittalCenter = sphereWidgetSagittal.GetCenter()
-
         # Axial view
         if (viewId == 1):
             cameraPosition = rendererAxial.GetActiveCamera().GetPosition()
             sliceSpacing = resliceAxial.GetOutput().GetSpacing()[2]
             if event == "MouseWheelForwardEvent":
-                # move the center point that we are slicing through
-                newPosition = resliceAxial.GetResliceAxes().MultiplyPoint((0, 0, sliceSpacing, 1))
-                resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
-                resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
-                resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
-                rendererAxial.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1], cameraPosition[2] + sliceSpacing)
-            elif event == "MouseWheelBackwardEvent":
-                # move the center point that we are slicing through
+                # Move the center point that we are slicing through
                 newPosition = resliceAxial.GetResliceAxes().MultiplyPoint((0, 0, -sliceSpacing, 1))
                 resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
-                rendererAxial.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1], cameraPosition[2] - sliceSpacing)
+                sliceSpacing = -sliceSpacing
+            elif event == "MouseWheelBackwardEvent":
+                # Move the center point that we are slicing through
+                newPosition = resliceAxial.GetResliceAxes().MultiplyPoint((0, 0, sliceSpacing, 1))
+                resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
+                resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
+                resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
+            # Set position of camera in axial view
+            rendererAxial.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1], cameraPosition[2] + sliceSpacing)
 
-            sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], sphereWidgetAxialCenter[1], newPosition[2])
-            sphereWidgetCenterAxial["center"] = sphereWidgetAxial.GetCenter()
-
+            # Translate sphere widget in axial view
+            sphereWidgetAxial.SetCenter(currentSphereWidgetCenter["axial"][0], currentSphereWidgetCenter["axial"][1], currentSphereWidgetCenter["axial"][2] + sliceSpacing)
+            # Translate lines in axial view
             greenLineAxialActor.SetPosition(sphereWidgetAxial.GetCenter())
             blueLineAxialActor.SetPosition(sphereWidgetAxial.GetCenter())
-
-            sphereWidgetInteractionRotateGreenLineAxial.SetCenter(sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[0], sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[1], newPosition[2])
+            # Translate a rotation point on green line in axial view
+            sphereWidgetInteractionRotateGreenLineAxial.SetCenter(sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[0], sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[1], sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[2] + sliceSpacing)
             currentSphereWidgetCenterRotateLinesAxial["green"] = sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
 
-            sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], sphereWidgetCoronalCenter[1], newPosition[2])
+            # Translate sphere widget in coronal view
+            sphereWidgetCoronal.SetCenter(currentSphereWidgetCenter["coronal"][0], currentSphereWidgetCenter["coronal"][1], currentSphereWidgetCenter["coronal"][2] + sliceSpacing)
+            # Translate lines in coronal view
             greenLineCoronalActor.SetPosition(sphereWidgetCoronal.GetCenter())
             redLineCoronalActor.SetPosition(sphereWidgetCoronal.GetCenter())
             
-            sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], sphereWidgetSagittalCenter[1], newPosition[2])
+            # Translate sphere widget in sagittal view
+            sphereWidgetSagittal.SetCenter(currentSphereWidgetCenter["sagittal"][0], currentSphereWidgetCenter["sagittal"][1], currentSphereWidgetCenter["sagittal"][2] + sliceSpacing)
+            # Translate lines in sagittal view
+            blueLineSagittalActor.SetPosition(sphereWidgetSagittal.GetCenter())
+            redLineSagittalActor.SetPosition(sphereWidgetSagittal.GetCenter())
         # Coronal view
         elif viewId == 2:
+            cameraPosition = rendererCoronal.GetActiveCamera().GetPosition()
             sliceSpacing = resliceCoronal.GetOutput().GetSpacing()[2]
-            matrix = resliceCoronal.GetResliceAxes()
             if event == "MouseWheelForwardEvent":
                 # move the center point that we are slicing through
-                newPosition = [matrix.GetElement(0, 3), matrix.GetElement(1, 3) + sliceSpacing, matrix.GetElement(2, 3)]
-                matrix.SetElement(0, 3, newPosition[0])
-                matrix.SetElement(1, 3, newPosition[1])
-                matrix.SetElement(2, 3, newPosition[2])
-                resliceCoronal.Update()
+                newPosition = [
+                    resliceCoronal.GetResliceAxes().GetElement(0, 3), 
+                    resliceCoronal.GetResliceAxes().GetElement(1, 3) - sliceSpacing, 
+                    resliceCoronal.GetResliceAxes().GetElement(2, 3)
+                ]
+                resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+                resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+                resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+                sliceSpacing = -sliceSpacing
             elif event == "MouseWheelBackwardEvent":
                 # move the center point that we are slicing through
-                newPosition = [matrix.GetElement(0, 3), matrix.GetElement(1, 3) - sliceSpacing, matrix.GetElement(2, 3)]
-                matrix.SetElement(0, 3, newPosition[0])
-                matrix.SetElement(1, 3, newPosition[1])
-                matrix.SetElement(2, 3, newPosition[2])
-                resliceCoronal.Update()
-            # actorCoronal.SetPosition(center[0], newPosition[1], center[2])
-            # sphereWidgetCoronal.SetCenter(sphereWidgetCoronalCenter[0], newPosition[1], sphereWidgetCoronalCenter[2])
-            # setLinesCoronalPlane([sphereWidgetCoronalCenter[0], newPosition[1], sphereWidgetCoronalCenter[2]])
+                newPosition = [
+                    resliceCoronal.GetResliceAxes().GetElement(0, 3), 
+                    resliceCoronal.GetResliceAxes().GetElement(1, 3) + sliceSpacing, 
+                    resliceCoronal.GetResliceAxes().GetElement(2, 3)
+                ]
+                resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+                resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+                resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+            # Set position of camera in coronal view
+            rendererCoronal.GetActiveCamera().SetPosition(cameraPosition[0], cameraPosition[1] + sliceSpacing, cameraPosition[2])
 
-            # sphereWidgetAxial.SetCenter(sphereWidgetAxialCenter[0], newPosition[1], sphereWidgetAxialCenter[2])
-            # setLinesAxialPlane([sphereWidgetAxialCenter[0], newPosition[1], sphereWidgetAxialCenter[2]])
+            # Translate sphere widget in coronal view
+            sphereWidgetCoronal.SetCenter(currentSphereWidgetCenter["coronal"][0], currentSphereWidgetCenter["coronal"][1] + sliceSpacing, currentSphereWidgetCenter["coronal"][2])
+            # Translate lines in coronal view
+            greenLineCoronalActor.SetPosition(sphereWidgetCoronal.GetCenter())
+            redLineCoronalActor.SetPosition(sphereWidgetCoronal.GetCenter())
+            
+            # Translate sphere widget in axial view
+            sphereWidgetAxial.SetCenter(currentSphereWidgetCenter["axial"][0], currentSphereWidgetCenter["axial"][1] + sliceSpacing, currentSphereWidgetCenter["axial"][2])
+            # Translate lines in axial view
+            greenLineAxialActor.SetPosition(sphereWidgetAxial.GetCenter())
+            blueLineAxialActor.SetPosition(sphereWidgetAxial.GetCenter())
+            # Translate a rotation point on green line in axial view
+            sphereWidgetInteractionRotateGreenLineAxial.SetCenter(sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[0], sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[1] + sliceSpacing, sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[2])
+            currentSphereWidgetCenterRotateLinesAxial["green"] = sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
 
-            # sphereWidgetSagittal.SetCenter(sphereWidgetSagittalCenter[0], newPosition[1], sphereWidgetSagittalCenter[2])
-            # setLinesSagittalPlane([sphereWidgetSagittalCenter[0], newPosition[1], sphereWidgetSagittalCenter[2]])
-
-            # rendererCoronal.ResetCamera()
+            # Translate sphere widget in sagittal view
+            sphereWidgetSagittal.SetCenter(currentSphereWidgetCenter["sagittal"][0], currentSphereWidgetCenter["sagittal"][1] + sliceSpacing, currentSphereWidgetCenter["sagittal"][2])
+            # Translate lines in sagittal view
+            blueLineSagittalActor.SetPosition(sphereWidgetSagittal.GetCenter())
+            redLineSagittalActor.SetPosition(sphereWidgetSagittal.GetCenter())
         # Sagittal view
         elif viewId == 3:
+            cameraPosition = rendererSagittal.GetActiveCamera().GetPosition()
             sliceSpacing = resliceSagittal.GetOutput().GetSpacing()[2]
-            matrix = resliceSagittal.GetResliceAxes()
             if event == "MouseWheelForwardEvent":
                 # move the center point that we are slicing through
-                newPosition = [matrix.GetElement(0, 3) + sliceSpacing, matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
-                matrix.SetElement(0, 3, newPosition[0])
-                matrix.SetElement(1, 3, newPosition[1])
-                matrix.SetElement(2, 3, newPosition[2])
-                resliceCoronal.Update()
+                newPosition = [
+                    resliceSagittal.GetResliceAxes().GetElement(0, 3) - sliceSpacing, 
+                    resliceSagittal.GetResliceAxes().GetElement(1, 3), 
+                    resliceSagittal.GetResliceAxes().GetElement(2, 3)
+                ]
+                resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+                resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+                resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+                sliceSpacing = -sliceSpacing
             elif event == "MouseWheelBackwardEvent":
                 # move the center point that we are slicing through
-                newPosition = [matrix.GetElement(0, 3) - sliceSpacing, matrix.GetElement(1, 3), matrix.GetElement(2, 3)]
-                matrix.SetElement(0, 3, newPosition[0])
-                matrix.SetElement(1, 3, newPosition[1])
-                matrix.SetElement(2, 3, newPosition[2])
-                resliceCoronal.Update()
-            # actorSagittal.SetPosition(newPosition[0], center[1], center[2])
-            # sphereWidgetSagittal.SetCenter(newPosition[0], sphereWidgetSagittalCenter[1], sphereWidgetSagittalCenter[2])
-            # setLinesSagittalPlane([newPosition[0], sphereWidgetSagittalCenter[1], sphereWidgetSagittalCenter[2]])
+                newPosition = [
+                    resliceSagittal.GetResliceAxes().GetElement(0, 3) + sliceSpacing, 
+                    resliceSagittal.GetResliceAxes().GetElement(1, 3), 
+                    resliceSagittal.GetResliceAxes().GetElement(2, 3)
+                ]
+                resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+                resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+                resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+            # Set position of camera in sagittal view
+            rendererSagittal.GetActiveCamera().SetPosition(cameraPosition[0] + sliceSpacing, cameraPosition[1], cameraPosition[2])
 
-            # sphereWidgetAxial.SetCenter(newPosition[0], sphereWidgetAxialCenter[1], sphereWidgetAxialCenter[2])
-            # setLinesAxialPlane([newPosition[0], sphereWidgetAxialCenter[1], sphereWidgetAxialCenter[2]])
+            # Translate sphere widget in sagittal view
+            sphereWidgetSagittal.SetCenter(currentSphereWidgetCenter["sagittal"][0] + sliceSpacing, currentSphereWidgetCenter["sagittal"][1], currentSphereWidgetCenter["sagittal"][2])
+            # Translate lines in sagittal view
+            blueLineSagittalActor.SetPosition(sphereWidgetSagittal.GetCenter())
+            redLineSagittalActor.SetPosition(sphereWidgetSagittal.GetCenter())
 
-            # sphereWidgetCoronal.SetCenter(newPosition[0], sphereWidgetCoronalCenter[1], sphereWidgetCoronalCenter[2])
-            # setLinesCoronalPlane([newPosition[0], sphereWidgetCoronalCenter[1], sphereWidgetCoronalCenter[2]])
+            # Translate sphere widget in axial view
+            sphereWidgetAxial.SetCenter(currentSphereWidgetCenter["axial"][0] + sliceSpacing, currentSphereWidgetCenter["axial"][1], currentSphereWidgetCenter["axial"][2])
+            # Translate lines in axial view
+            greenLineAxialActor.SetPosition(sphereWidgetAxial.GetCenter())
+            blueLineAxialActor.SetPosition(sphereWidgetAxial.GetCenter())
+            # Translate a rotation point on green line in axial view
+            sphereWidgetInteractionRotateGreenLineAxial.SetCenter(sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[0] + sliceSpacing, sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[1], sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[2])
+            currentSphereWidgetCenterRotateLinesAxial["green"] = sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
 
-            # rendererSagittal.ResetCamera()
+            # Translate sphere widget in coronal view
+            sphereWidgetCoronal.SetCenter(currentSphereWidgetCenter["coronal"][0] + sliceSpacing, currentSphereWidgetCenter["coronal"][1], currentSphereWidgetCenter["coronal"][2])
+            # Translate lines in coronal view
+            greenLineCoronalActor.SetPosition(sphereWidgetCoronal.GetCenter())
+            redLineCoronalActor.SetPosition(sphereWidgetCoronal.GetCenter())
+        
+        currentSphereWidgetCenter["axial"] = sphereWidgetAxial.GetCenter()
+        currentSphereWidgetCenter["coronal"] = sphereWidgetCoronal.GetCenter()
+        currentSphereWidgetCenter["sagittal"] = sphereWidgetSagittal.GetCenter()
         renderWindow.Render()
         
     interactorStyle.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandle)
