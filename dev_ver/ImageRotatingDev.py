@@ -9,16 +9,10 @@
 import vtk
 from vtkmodules.vtkCommonCore import vtkCommand
 import math
-
 vtkmath = vtk.vtkMath()
 
-'''
-Params:
-    A: a point in 3-dimensional space
-    B: a point in 3-dimensional space
-    C: a point in 3-dimensional space
-Description: Calculate the angle between 2 vectors
-'''
+# Render single-view (a render window)
+
 def calcAngleBetweenTwoVectors(A, B, C) -> float:
     BA = [A[0] - B[0], A[1] - B[1], A[2] - B[2]]
     BC = [C[0] - B[0], C[1] - B[1], C[2] - B[2]]
