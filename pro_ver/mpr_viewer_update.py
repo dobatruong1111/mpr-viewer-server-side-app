@@ -3,7 +3,7 @@
 import vtk
 from vtkmodules.vtkCommonCore import vtkCommand
 import math
-import time
+from typing import Union, List, Tuple
 
 vtkmath = vtk.vtkMath()
 
@@ -11,10 +11,14 @@ class MPRViewer(object):
     def __init__(self) -> None:
         self.colors = vtk.vtkNamedColors()
         self.initialize()
+
         self.initCenterlineAxialView()
         self.initCenterlineCoronalView()
         self.initCenterlineSagittalView()
-        self.initWidgets()
+
+        self.initWidgetsAxialView()
+        self.initWidgetsCoronalView()
+        self.initWidgetsSagittalView()
 
     def initialize(self) -> None:
         self.reader = vtk.vtkDICOMImageReader()
@@ -40,6 +44,7 @@ class MPRViewer(object):
         self.renderWindowSagittal = vtk.vtkRenderWindow()
         self.interactorStyleAxial = vtk.vtkInteractorStyleImage()
         # self.interactorStyleAxial = vtk.vtkInteractorStyleTrackballCamera()
+        # self.interactorStyleAxial = vtk.vtkInteractorStyle()
         self.interactorStyleCoronal = vtk.vtkInteractorStyleImage()
         # self.interactorStyleCoronal = vtk.vtkInteractorStyleTrackballCamera()
         self.interactorStyleSagittal = vtk.vtkInteractorStyleImage()
@@ -200,36 +205,38 @@ class MPRViewer(object):
         self.linesSagittalActor.GetProperty().SetLineWidth(1)
         self.linesSagittalActor.SetOrigin(0, 0, 0)
 
-    def initWidgets(self) -> None:
+    def initWidgetsAxialView(self) -> None:
         self.sphereWidgetAxial = vtk.vtkSphereWidget()
-        self.sphereWidgetAxial.SetRadius(8)
+        self.sphereWidgetAxial.SetRadius(5)
         self.sphereWidgetAxial.SetInteractor(self.renderWindowInteractorAxial)
         self.sphereWidgetAxial.SetRepresentationToSurface()
-        self.sphereWidgetAxial.GetSphereProperty().SetColor(self.colors.GetColor3d("Tomato"))
+        self.sphereWidgetAxial.GetSphereProperty().SetColor(self.colors.GetColor3d("Green"))
         self.sphereWidgetAxial.GetSelectedSphereProperty().SetOpacity(0)
         self.sphereWidgetAxial.SetCurrentRenderer(self.rendererAxial)
 
         self.sphereWidgetInteractionRotateGreenLineAxial = vtk.vtkSphereWidget()
-        self.sphereWidgetInteractionRotateGreenLineAxial.SetRadius(8)
+        self.sphereWidgetInteractionRotateGreenLineAxial.SetRadius(5)
         self.sphereWidgetInteractionRotateGreenLineAxial.SetInteractor(self.renderWindowInteractorAxial)
         self.sphereWidgetInteractionRotateGreenLineAxial.SetRepresentationToSurface()
         self.sphereWidgetInteractionRotateGreenLineAxial.GetSphereProperty().SetColor(self.colors.GetColor3d("Green"))
         self.sphereWidgetInteractionRotateGreenLineAxial.GetSelectedSphereProperty().SetOpacity(0)
         self.sphereWidgetInteractionRotateGreenLineAxial.SetCurrentRenderer(self.rendererAxial)
-
+    
+    def initWidgetsCoronalView(self) -> None:
         self.sphereWidgetCoronal = vtk.vtkSphereWidget()
-        self.sphereWidgetCoronal.SetRadius(8)
+        self.sphereWidgetCoronal.SetRadius(5)
         self.sphereWidgetCoronal.SetInteractor(self.renderWindowInteractorCoronal)
         self.sphereWidgetCoronal.SetRepresentationToSurface()
-        self.sphereWidgetCoronal.GetSphereProperty().SetColor(self.colors.GetColor3d("Tomato"))
+        self.sphereWidgetCoronal.GetSphereProperty().SetColor(self.colors.GetColor3d("Green"))
         self.sphereWidgetCoronal.GetSelectedSphereProperty().SetOpacity(0)
         self.sphereWidgetCoronal.SetCurrentRenderer(self.rendererCoronal)
 
+    def initWidgetsSagittalView(self) -> None:
         self.sphereWidgetSagittal = vtk.vtkSphereWidget()
-        self.sphereWidgetSagittal.SetRadius(8)
+        self.sphereWidgetSagittal.SetRadius(5)
         self.sphereWidgetSagittal.SetInteractor(self.renderWindowInteractorSagittal)
         self.sphereWidgetSagittal.SetRepresentationToSurface()
-        self.sphereWidgetSagittal.GetSphereProperty().SetColor(self.colors.GetColor3d("Tomato"))
+        self.sphereWidgetSagittal.GetSphereProperty().SetColor(self.colors.GetColor3d("Blue"))
         self.sphereWidgetSagittal.GetSelectedSphereProperty().SetOpacity(0)
         self.sphereWidgetSagittal.SetCurrentRenderer(self.rendererSagittal)
 
@@ -250,7 +257,19 @@ class MPRViewer(object):
         self.renderWindowCoronal.Render()
         self.renderWindowSagittal.Render()
     
-    def showMPR(self, path_to_dir: str) -> None:
+    def setCrosshairPositionAxialView(self, position: Union[List, Tuple]) -> None:
+        self.sphereWidgetAxial.SetCenter(position)
+        self.linesAxialActor.SetPosition(position)
+
+    def setCrosshairPositionCoronalView(self, position: Union[List, Tuple]) -> None:
+        self.sphereWidgetCoronal.SetCenter(position)
+        self.linesCoronalActor.SetPosition(position)
+    
+    def setCrosshairPositionSagittalView(self, position: Union[List, Tuple]) -> None:
+        self.sphereWidgetSagittal.SetCenter(position)
+        self.linesSagittalActor.SetPosition(position)
+
+    def show3DMPR(self, path_to_dir: str) -> None:
         # Reader
         self.reader.SetDirectoryName(path_to_dir)
         self.reader.Update()
@@ -258,10 +277,12 @@ class MPRViewer(object):
         center = imageData.GetCenter()
         (xMin, xMax, yMin, yMax, zMin, zMax) = imageData.GetBounds()
 
-        # Set position of widgets
-        self.sphereWidgetAxial.SetCenter(center)
-        self.sphereWidgetCoronal.SetCenter(center)
-        self.sphereWidgetSagittal.SetCenter(center)
+        # Set crosshair position in views
+        self.setCrosshairPositionAxialView(center)
+        self.setCrosshairPositionCoronalView(center)
+        self.setCrosshairPositionSagittalView(center)
+
+        self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter(center[0], (yMax + center[1])/2, center[2])
 
         # Matrices for axial, coronal, and sagittal view orientations
         # Model matrix = Translation matrix
@@ -302,19 +323,22 @@ class MPRViewer(object):
         self.resliceSagittal.SetResliceAxes(self.sagittal)
         self.resliceSagittal.SetInterpolationModeToLinear()
 
-        # Display dicom
+        # Display
         self.actorAxial.GetMapper().SetInputConnection(self.resliceAxial.GetOutputPort())
         self.actorCoronal.GetMapper().SetInputConnection(self.resliceCoronal.GetOutputPort())
         self.actorSagittal.GetMapper().SetInputConnection(self.resliceSagittal.GetOutputPort())
 
-        # Set position and rotate dicom
+        # Set position and rotate in world coordinates
         self.actorAxial.SetUserMatrix(self.axial)
         self.actorCoronal.SetUserMatrix(self.coronal)
         self.actorSagittal.SetUserMatrix(self.sagittal)
 
-        # Renderers
+        # Set renderers
         self.rendererAxial.AddActor(self.actorAxial)
         self.rendererAxial.AddActor(self.linesAxialActor)
+        # The reset camera call is figuring out the frustum bounds based on all the actors present
+        # in the viewport.
+        self.rendererAxial.ResetCamera()
         self.cameraAxialView.SetPosition(center[0], center[1], 2*zMax)
         self.cameraAxialView.SetFocalPoint(center)
         self.cameraAxialView.SetViewUp(0, 1, 0)
@@ -323,6 +347,9 @@ class MPRViewer(object):
 
         self.rendererCoronal.AddActor(self.actorCoronal)
         self.rendererCoronal.AddActor(self.linesCoronalActor)
+        # The reset camera call is figuring out the frustum bounds based on all the actors present
+        # in the viewport.
+        self.rendererCoronal.ResetCamera()
         self.cameraCoronalView.SetPosition(center[0], 2*yMax, center[2])
         self.cameraCoronalView.SetFocalPoint(center)
         self.cameraCoronalView.SetViewUp(0, 0, -1)
@@ -331,18 +358,15 @@ class MPRViewer(object):
 
         self.rendererSagittal.AddActor(self.actorSagittal)
         self.rendererSagittal.AddActor(self.linesSagittalActor)
+        # The reset camera call is figuring out the frustum bounds based on all the actors present
+        # in the viewport.
+        self.rendererSagittal.ResetCamera()
         self.cameraSagittalView.SetPosition(2*xMax, center[1], center[2])
         self.cameraSagittalView.SetFocalPoint(center)
         self.cameraSagittalView.SetViewUp(0, 0, -1)
         self.cameraSagittalView.SetThickness(2*xMax)
         self.rendererSagittal.SetActiveCamera(self.cameraSagittalView)
         self.renderWindows()
-
-        # Set position of lines in views
-        self.linesAxialActor.SetPosition(center)
-        self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter(center[0], (yMax + center[1])/2, center[2])
-        self.linesCoronalActor.SetPosition(center)
-        self.linesSagittalActor.SetPosition(center)
 
         # Create callback function for sphere widget interaction
         currentSphereWidgetCenter = {
@@ -353,113 +377,145 @@ class MPRViewer(object):
         currentSphereWidgetCenterRotateLinesAxial = {
             "green": self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
         }
-        def interactionEventHandleTranslateLines_AxialView(obj, event) -> None:
+
+        def setupCameraAxialView(newPosition: Union[List, Tuple]) -> None:
+            cameraPosition = self.rendererAxial.GetActiveCamera().GetPosition()
+            focalPoint = self.rendererAxial.GetActiveCamera().GetFocalPoint()
+            reverseProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
+            normReverseProjectionVector = vtkmath.Norm(reverseProjectionVector)
+            vector = [newPosition[i] - focalPoint[i] for i in range(3)]
+            translationInterval = [(vtkmath.Dot(reverseProjectionVector, vector)/math.pow(normReverseProjectionVector, 2))*reverseProjectionVector[i] for i in range(3)]
+            self.rendererAxial.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
+            self.rendererAxial.GetActiveCamera().SetFocalPoint([focalPoint[i] + translationInterval[i] for i in range(3)])
+
+        def setupCameraCoronalView(newPosition: Union[List, Tuple]) -> None:
+            cameraPosition = self.rendererCoronal.GetActiveCamera().GetPosition()
+            focalPoint = self.rendererCoronal.GetActiveCamera().GetFocalPoint()
+            reverseProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
+            normReverseProjectionVector = vtkmath.Norm(reverseProjectionVector)
+            vector = [newPosition[i] - focalPoint[i] for i in range(3)]
+            translationInterval = [(vtkmath.Dot(reverseProjectionVector, vector)/math.pow(normReverseProjectionVector, 2))*reverseProjectionVector[i] for i in range(3)]
+            self.rendererCoronal.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
+            self.rendererCoronal.GetActiveCamera().SetFocalPoint([focalPoint[i] + translationInterval[i] for i in range(3)])
+
+        def setupCameraSagittalView(newPosition: Union[List, Tuple]) -> None:
+            cameraPosition = self.rendererSagittal.GetActiveCamera().GetPosition()
+            focalPoint = self.rendererSagittal.GetActiveCamera().GetFocalPoint()
+            reverseProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
+            normReverseProjectionVector = vtkmath.Norm(reverseProjectionVector)
+            vector = [newPosition[i] - focalPoint[i] for i in range(3)]
+            translationInterval = [(vtkmath.Dot(reverseProjectionVector, vector)/math.pow(normReverseProjectionVector, 2))*reverseProjectionVector[i] for i in range(3)]
+            self.rendererSagittal.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
+            self.rendererSagittal.GetActiveCamera().SetFocalPoint([focalPoint[i] + translationInterval[i] for i in range(3)])
+        
+        def interactionEventHandleTranslateLinesAxialView(obj, event) -> None:
             newPosition = obj.GetCenter()
+
+            # Set centerline position in axial view
+            self.linesAxialActor.SetPosition(newPosition)
+            # Set rotation position on green line in axial view
             translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
-
-            # Translate lines in axial view
-            self.linesAxialActor.SetPosition(newPosition)
-            # Translate a rotation point on green line in axial view
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([currentSphereWidgetCenterRotateLinesAxial["green"][i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
-
-            # Extract image with new position
-            self.resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
-            self.resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
-            self.resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in sagittal view
-            self.sphereWidgetSagittal.SetCenter(newPosition)
-            # Translate lines in sagital view
-            self.linesSagittalActor.SetPosition(newPosition)
 
             # Extract image with new position
             self.resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
             self.resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
             self.resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in coronal view
-            self.sphereWidgetCoronal.SetCenter(newPosition)
-            # Translate lines in coronal view
-            self.linesCoronalActor.SetPosition(newPosition)
+            # Set crosshair position in coronal view
+            self.setCrosshairPositionCoronalView(newPosition)
+            # Setup camera in coronal view
+            setupCameraCoronalView(newPosition)
 
-            currentSphereWidgetCenter["axial"] = newPosition
-            currentSphereWidgetCenter["sagittal"] = newPosition
-            currentSphereWidgetCenter["coronal"] = newPosition
+            # Extract image with new position
+            self.resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
+            self.resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
+            self.resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+            # Set crosshair position in sagittal view
+            self.setCrosshairPositionSagittalView(newPosition)
+            # Setup camera in sagittal view
+            setupCameraSagittalView(newPosition)
+
+            currentSphereWidgetCenter["axial"] = self.sphereWidgetAxial.GetCenter()
+            currentSphereWidgetCenter["sagittal"] = self.sphereWidgetCoronal.GetCenter()
+            currentSphereWidgetCenter["coronal"] = self.sphereWidgetSagittal.GetCenter()
 
             self.renderWindowCoronal.Render()
             self.renderWindowSagittal.Render()
 
-        def interactionEventHandleTranslateLines_CoronalView(obj, event) -> None:
+        def interactionEventHandleTranslateLinesCoronalView(obj, event) -> None:
             newPosition = obj.GetCenter()
-            translationInterval = [newPosition[i] - currentSphereWidgetCenter["coronal"][i] for i in range(3)]
 
-            # Translate lines in coronal view
+            # Set centerline position in coronal view
             self.linesCoronalActor.SetPosition(newPosition)
 
             # Extract image with new position
             self.resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
             self.resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
             self.resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in axial view
-            self.sphereWidgetAxial.SetCenter(newPosition)
-            # Translate lines in axial view
-            self.linesAxialActor.SetPosition(newPosition)
-            # Translate a rotation point on green line in axial view
+            # Set crosshair position in axial view
+            self.setCrosshairPositionAxialView(newPosition)
+            # Set rotation position on green line in axial view
+            translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([currentSphereWidgetCenterRotateLinesAxial["green"][i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
+            # Setup camera in axial view
+            setupCameraAxialView(newPosition)
 
             # Extract image with new position
             self.resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
             self.resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
             self.resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in sagittal view
-            self.sphereWidgetSagittal.SetCenter(newPosition)
-            # Translate lines in sagittal view
-            self.linesSagittalActor.SetPosition(newPosition)
+            # Set crosshair position in sagittal view
+            self.setCrosshairPositionSagittalView(newPosition)
+            # Setup camera in sagittal view
+            setupCameraSagittalView(newPosition)
 
-            currentSphereWidgetCenter["axial"] = newPosition
-            currentSphereWidgetCenter["sagittal"] = newPosition
-            currentSphereWidgetCenter["coronal"] = newPosition
+            currentSphereWidgetCenter["axial"] = self.sphereWidgetAxial.GetCenter()
+            currentSphereWidgetCenter["sagittal"] = self.sphereWidgetCoronal.GetCenter()
+            currentSphereWidgetCenter["coronal"] = self.sphereWidgetSagittal.GetCenter()
 
             self.renderWindowAxial.Render()
             self.renderWindowSagittal.Render()
 
-        def interactionEventHandleTranslateLines_SagittalView(obj, event) -> None:
+        def interactionEventHandleTranslateLinesSagittalView(obj, event) -> None:
             newPosition = obj.GetCenter()
+
+            # Set centerline position in sagittal view
+            self.linesSagittalActor.SetPosition(newPosition)
+
+            # Extract image with new position
+            self.resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
+            self.resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
+            self.resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
+            # Set crosshair position in axial view
+            self.setCrosshairPositionAxialView(newPosition)
+            # Set rotation position on green line in axial view
             translationInterval = [newPosition[i] - currentSphereWidgetCenter["sagittal"][i] for i in range(3)]
-
-            # Translate lines in sagittal view
-            self.linesSagittalActor.SetPosition(newPosition)
-
-            # Extract image with new position
-            self.resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
-            self.resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
-            self.resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in axial view
-            self.sphereWidgetAxial.SetCenter(newPosition)
-            # Translate lines in axial view
-            self.linesAxialActor.SetPosition(newPosition)
-            # Translate a rotation point on green line in axial view
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([currentSphereWidgetCenterRotateLinesAxial["green"][i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
+            # Setup camera in axial view
+            setupCameraAxialView(newPosition)
 
             # Extract image with new position
             self.resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
             self.resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
             self.resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in coronal view
-            self.sphereWidgetCoronal.SetCenter(newPosition)
-            # Translate lines in coronal view
-            self.linesCoronalActor.SetPosition(newPosition)
+            # Set crosshair position in coronal view
+            self.setCrosshairPositionCoronalView(newPosition)
+            # Setup camera in coronal view
+            setupCameraCoronalView(newPosition)
 
-            currentSphereWidgetCenter["axial"] = newPosition
-            currentSphereWidgetCenter["sagittal"] = newPosition
-            currentSphereWidgetCenter["coronal"] = newPosition
+            currentSphereWidgetCenter["axial"] = self.sphereWidgetAxial.GetCenter()
+            currentSphereWidgetCenter["sagittal"] = self.sphereWidgetCoronal.GetCenter()
+            currentSphereWidgetCenter["coronal"] = self.sphereWidgetSagittal.GetCenter()
 
             self.renderWindowAxial.Render()
             self.renderWindowCoronal.Render()
 
-        def interactionEventHandleRotateGreenLine_AxialView(obj, event) -> None:
+        def interactionEventHandleRotateGreenLineAxialView(obj, event) -> None:
             newPosition = obj.GetCenter()
+
             # Calculate rotation angle (degree unit)
             v1 = [currentSphereWidgetCenterRotateLinesAxial["green"][i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
             v2 = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
@@ -496,12 +552,14 @@ class MPRViewer(object):
             self.renderWindowCoronal.Render()
             self.renderWindowSagittal.Render()
 
-        self.sphereWidgetAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_AxialView)
-        self.sphereWidgetInteractionRotateGreenLineAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleRotateGreenLine_AxialView)
-        self.sphereWidgetCoronal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_CoronalView)
-        self.sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLines_SagittalView)
+        self.sphereWidgetAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLinesAxialView)
+        self.sphereWidgetInteractionRotateGreenLineAxial.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleRotateGreenLineAxialView)
+        
+        self.sphereWidgetCoronal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLinesCoronalView)
+        
+        self.sphereWidgetSagittal.AddObserver(vtkCommand.InteractionEvent, interactionEventHandleTranslateLinesSagittalView)
 
-        def mouseWheelEventHandle_AxialView(obj, event) -> None:
+        def mouseWheelEventHandleAxialView(obj, event) -> None:
             sliceSpacing = self.resliceAxial.GetOutput().GetSpacing()[2]
             cameraPosition = self.rendererAxial.GetActiveCamera().GetPosition()
             focalPoint = self.rendererAxial.GetActiveCamera().GetFocalPoint()
@@ -523,24 +581,22 @@ class MPRViewer(object):
                 self.resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in axial view
-            self.sphereWidgetAxial.SetCenter(newPosition)
-            # Translate lines in axial view
-            self.linesAxialActor.SetPosition(newPosition)
-            # Translate a rotation point on green line in axial view
+
+            # Set crosshair position in axial view
+            self.setCrosshairPositionAxialView(newPosition)
+            # Set rotation position on green line in axial view
             translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
+            # Set camera position in axial view
+            cameraPosition = self.rendererAxial.GetActiveCamera().GetPosition()
+            self.rendererAxial.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
 
-            # Translate sphere widget in coronal view
-            self.sphereWidgetCoronal.SetCenter(newPosition)
-            # Translate lines in coronal view
-            self.linesCoronalActor.SetPosition(newPosition)
+            # Set crosshair position in coronal view
+            self.setCrosshairPositionCoronalView(newPosition)
 
-            # Translate sphere widget in sagittal view
-            self.sphereWidgetSagittal.SetCenter(newPosition)
-            # Translate lines in sagittal view
-            self.linesSagittalActor.SetPosition(newPosition)
+            # Set crosshair position in sagittal view
+            self.setCrosshairPositionSagittalView(newPosition)
 
             currentSphereWidgetCenter["axial"] = newPosition
             currentSphereWidgetCenter["coronal"] = newPosition
@@ -550,7 +606,7 @@ class MPRViewer(object):
             self.renderWindowCoronal.Render()
             self.renderWindowSagittal.Render()
 
-        def mouseWheelEventHandle_CoronalView(obj, event) -> None:
+        def mouseWheelEventHandleCoronalView(obj, event) -> None:
             sliceSpacing = self.resliceCoronal.GetOutput().GetSpacing()[2]
             cameraPosition = self.rendererCoronal.GetActiveCamera().GetPosition()
             focalPoint = self.rendererCoronal.GetActiveCamera().GetFocalPoint()
@@ -572,24 +628,22 @@ class MPRViewer(object):
                 self.resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in coronal view
-            self.sphereWidgetCoronal.SetCenter(newPosition)
-            # Translate lines in coronal view
-            self.linesCoronalActor.SetPosition(newPosition)
+            # Set crosshair position in coronal view
+            self.setCrosshairPositionCoronalView(newPosition)
+            # Set camera position in coronal view
+            translationInterval = [newPosition[i] - currentSphereWidgetCenter["coronal"][i] for i in range(3)]
+            cameraPosition = self.rendererCoronal.GetActiveCamera().GetPosition()
+            self.rendererCoronal.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
             
-            # Translate sphere widget in axial view
-            self.sphereWidgetAxial.SetCenter(newPosition)
-            # Translate lines in axial view
-            self.linesAxialActor.SetPosition(newPosition)
-            # Translate a rotation point on green line in axial view
+            # Set crosshair position in axial view
+            self.setCrosshairPositionAxialView(newPosition)
+            # Set rotation position on green line in axial view
             translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
             
-            # Translate sphere widget in sagittal view
-            self.sphereWidgetSagittal.SetCenter(newPosition)
-            # Translate lines in sagittal view
-            self.linesSagittalActor.SetPosition(newPosition)
+            # Set crosshair position in sagittal view
+            self.setCrosshairPositionSagittalView(newPosition)
 
             currentSphereWidgetCenter["axial"] = newPosition
             currentSphereWidgetCenter["coronal"] = newPosition
@@ -599,7 +653,7 @@ class MPRViewer(object):
             self.renderWindowCoronal.Render()
             self.renderWindowSagittal.Render()
 
-        def mouseWheelEventHandle_SagittalView(obj, event) -> None:
+        def mouseWheelEventHandleSagittalView(obj, event) -> None:
             sliceSpacing = self.resliceSagittal.GetOutput().GetSpacing()[2]
             cameraPosition = self.rendererSagittal.GetActiveCamera().GetPosition()
             focalPoint = self.rendererSagittal.GetActiveCamera().GetFocalPoint()
@@ -621,24 +675,22 @@ class MPRViewer(object):
                 self.resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
-            # Translate sphere widget in sagittal view
-            self.sphereWidgetSagittal.SetCenter(newPosition)
-            # Translate lines in sagittal view
-            self.linesSagittalActor.SetPosition(newPosition)
+            # Set crosshair position in sagittal view
+            self.setCrosshairPositionSagittalView(newPosition)
+            # Set camera position in sagittal view
+            translationInterval = [newPosition[i] - currentSphereWidgetCenter["sagittal"][i] for i in range(3)]
+            cameraPosition = self.rendererSagittal.GetActiveCamera().GetPosition()
+            self.rendererSagittal.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
 
-            # Translate sphere widget in axial view
-            self.sphereWidgetAxial.SetCenter(newPosition)
-            # Translate lines in axial view
-            self.linesAxialActor.SetPosition(newPosition)
-            # Translate a rotation point on green line in axial view
+            # Set crosshair position in axial view
+            self.setCrosshairPositionAxialView(newPosition)
+            # Set rotation position on green line in axial view
             translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
 
-            # Translate sphere widget in coronal view
-            self.sphereWidgetCoronal.SetCenter(newPosition)
-            # Translate lines in coronal view
-            self.linesCoronalActor.SetPosition(newPosition)
+            # Set crosshair position in coronal view
+            self.setCrosshairPositionCoronalView(newPosition)
 
             currentSphereWidgetCenter["axial"] = newPosition
             currentSphereWidgetCenter["coronal"] = newPosition
@@ -648,12 +700,14 @@ class MPRViewer(object):
             self.renderWindowCoronal.Render()
             self.renderWindowSagittal.Render()
         
-        self.interactorStyleAxial.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandle_AxialView)
-        self.interactorStyleAxial.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandle_AxialView)
-        self.interactorStyleCoronal.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandle_CoronalView)
-        self.interactorStyleCoronal.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandle_CoronalView)
-        self.interactorStyleSagittal.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandle_SagittalView)
-        self.interactorStyleSagittal.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandle_SagittalView)
+        self.interactorStyleAxial.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandleAxialView)
+        self.interactorStyleAxial.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandleAxialView)
+        
+        self.interactorStyleCoronal.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandleCoronalView)
+        self.interactorStyleCoronal.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandleCoronalView)
+        
+        self.interactorStyleSagittal.AddObserver(vtkCommand.MouseWheelForwardEvent, mouseWheelEventHandleSagittalView)
+        self.interactorStyleSagittal.AddObserver(vtkCommand.MouseWheelBackwardEvent, mouseWheelEventHandleSagittalView)
 
         # Turn on widgets
         self.turnOnWidgets()
@@ -662,5 +716,8 @@ class MPRViewer(object):
 
 if __name__ == "__main__":
     mpr = MPRViewer()
-    path = "D:/workingspace/Python/dicom-data/1.2.840.113619.2.25.4.20352545.1711599249.29"
-    mpr.showMPR(path_to_dir=path)
+    # 1601 dicoms
+    path1 = "D:/workingspace/Python/dicom-data/1.2.840.113619.2.25.4.20352545.1711599249.29"
+    # 281 dicoms
+    path2 = "D:/workingspace/Python/dicom-data/220277460 Nguyen Thanh Dat"
+    mpr.show3DMPR(path_to_dir=path1)
