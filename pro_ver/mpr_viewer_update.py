@@ -43,12 +43,8 @@ class MPRViewer(object):
         self.renderWindowCoronal = vtk.vtkRenderWindow()
         self.renderWindowSagittal = vtk.vtkRenderWindow()
         self.interactorStyleAxial = vtk.vtkInteractorStyleImage()
-        # self.interactorStyleAxial = vtk.vtkInteractorStyleTrackballCamera()
-        # self.interactorStyleAxial = vtk.vtkInteractorStyle()
         self.interactorStyleCoronal = vtk.vtkInteractorStyleImage()
-        # self.interactorStyleCoronal = vtk.vtkInteractorStyleTrackballCamera()
         self.interactorStyleSagittal = vtk.vtkInteractorStyleImage()
-        # self.interactorStyleSagittal = vtk.vtkInteractorStyleTrackballCamera()
         self.renderWindowInteractorAxial = vtk.vtkRenderWindowInteractor()
         self.renderWindowInteractorCoronal = vtk.vtkRenderWindowInteractor()
         self.renderWindowInteractorSagittal = vtk.vtkRenderWindowInteractor()
@@ -563,21 +559,22 @@ class MPRViewer(object):
             sliceSpacing = self.resliceAxial.GetOutput().GetSpacing()[2]
             cameraPosition = self.rendererAxial.GetActiveCamera().GetPosition()
             focalPoint = self.rendererAxial.GetActiveCamera().GetFocalPoint()
+
             if event == "MouseWheelForwardEvent":
                 # Move the center point that we are slicing through
                 projectionVector = [focalPoint[i] - cameraPosition[i] for i in range(3)]
-                norm = vtk.vtkMath.Norm(projectionVector)
-                temp = [(sliceSpacing/norm) * projectionVector[i] for i in range(3)]
-                newPosition = [currentSphereWidgetCenter["axial"][i] + temp[i] for i in range(3)]
+                normProjectionVector = vtk.vtkMath.Norm(projectionVector)
+                translationInterval = [(sliceSpacing/normProjectionVector) * projectionVector[i] for i in range(3)]
+                newPosition = [currentSphereWidgetCenter["axial"][i] + translationInterval[i] for i in range(3)]
                 self.resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
             elif event == "MouseWheelBackwardEvent":
                 # Move the center point that we are slicing through
-                invertProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
-                norm = vtk.vtkMath.Norm(invertProjectionVector)
-                temp = [(sliceSpacing/norm) * invertProjectionVector[i] for i in range(3)]
-                newPosition = [currentSphereWidgetCenter["axial"][i] + temp[i] for i in range(3)]
+                reverseProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
+                normReverseProjectionVector = vtk.vtkMath.Norm(reverseProjectionVector)
+                translationInterval = [(sliceSpacing/normReverseProjectionVector) * reverseProjectionVector[i] for i in range(3)]
+                newPosition = [currentSphereWidgetCenter["axial"][i] + translationInterval[i] for i in range(3)]
                 self.resliceAxial.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceAxial.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceAxial.GetResliceAxes().SetElement(2, 3, newPosition[2])
@@ -585,12 +582,11 @@ class MPRViewer(object):
             # Set crosshair position in axial view
             self.setCrosshairPositionAxialView(newPosition)
             # Set rotation position on green line in axial view
-            translationInterval = [newPosition[i] - currentSphereWidgetCenter["axial"][i] for i in range(3)]
             self.sphereWidgetInteractionRotateGreenLineAxial.SetCenter([self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()[i] + translationInterval[i] for i in range(3)])
             currentSphereWidgetCenterRotateLinesAxial["green"] = self.sphereWidgetInteractionRotateGreenLineAxial.GetCenter()
-            # Set camera position in axial view
-            cameraPosition = self.rendererAxial.GetActiveCamera().GetPosition()
+            # Setup camera in axial view
             self.rendererAxial.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
+            self.rendererAxial.GetActiveCamera().SetFocalPoint([focalPoint[i] + translationInterval[i] for i in range(3)])
 
             # Set crosshair position in coronal view
             self.setCrosshairPositionCoronalView(newPosition)
@@ -598,9 +594,9 @@ class MPRViewer(object):
             # Set crosshair position in sagittal view
             self.setCrosshairPositionSagittalView(newPosition)
 
-            currentSphereWidgetCenter["axial"] = newPosition
-            currentSphereWidgetCenter["coronal"] = newPosition
-            currentSphereWidgetCenter["sagittal"] = newPosition
+            currentSphereWidgetCenter["axial"] = self.sphereWidgetAxial.GetCenter()
+            currentSphereWidgetCenter["sagittal"] = self.sphereWidgetCoronal.GetCenter()
+            currentSphereWidgetCenter["coronal"] = self.sphereWidgetSagittal.GetCenter()
 
             self.renderWindowAxial.Render()
             self.renderWindowCoronal.Render()
@@ -614,8 +610,8 @@ class MPRViewer(object):
                 # move the center point that we are slicing through
                 projectionVector = [focalPoint[i] - cameraPosition[i] for i in range(3)]
                 norm = vtk.vtkMath.Norm(projectionVector)
-                temp = [(sliceSpacing/norm) * projectionVector[i] for i in range(3)]
-                newPosition = [currentSphereWidgetCenter["coronal"][i] + temp[i] for i in range(3)]
+                translationInterval = [(sliceSpacing/norm) * projectionVector[i] for i in range(3)]
+                newPosition = [currentSphereWidgetCenter["coronal"][i] + translationInterval[i] for i in range(3)]
                 self.resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
@@ -623,18 +619,17 @@ class MPRViewer(object):
                 # move the center point that we are slicing through
                 invertProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
                 norm = vtk.vtkMath.Norm(invertProjectionVector)
-                temp = [(sliceSpacing/norm) * invertProjectionVector[i] for i in range(3)]
-                newPosition = [currentSphereWidgetCenter["coronal"][i] + temp[i] for i in range(3)]
+                translationInterval = [(sliceSpacing/norm) * invertProjectionVector[i] for i in range(3)]
+                newPosition = [currentSphereWidgetCenter["coronal"][i] + translationInterval[i] for i in range(3)]
                 self.resliceCoronal.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceCoronal.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceCoronal.GetResliceAxes().SetElement(2, 3, newPosition[2])
             # Set crosshair position in coronal view
             self.setCrosshairPositionCoronalView(newPosition)
             # Set camera position in coronal view
-            translationInterval = [newPosition[i] - currentSphereWidgetCenter["coronal"][i] for i in range(3)]
-            cameraPosition = self.rendererCoronal.GetActiveCamera().GetPosition()
             self.rendererCoronal.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
-            
+            self.rendererCoronal.GetActiveCamera().SetFocalPoint([focalPoint[i] + translationInterval[i] for i in range(3)])
+
             # Set crosshair position in axial view
             self.setCrosshairPositionAxialView(newPosition)
             # Set rotation position on green line in axial view
@@ -645,9 +640,9 @@ class MPRViewer(object):
             # Set crosshair position in sagittal view
             self.setCrosshairPositionSagittalView(newPosition)
 
-            currentSphereWidgetCenter["axial"] = newPosition
-            currentSphereWidgetCenter["coronal"] = newPosition
-            currentSphereWidgetCenter["sagittal"] = newPosition
+            currentSphereWidgetCenter["axial"] = self.sphereWidgetAxial.GetCenter()
+            currentSphereWidgetCenter["sagittal"] = self.sphereWidgetCoronal.GetCenter()
+            currentSphereWidgetCenter["coronal"] = self.sphereWidgetSagittal.GetCenter()
 
             self.renderWindowAxial.Render()
             self.renderWindowCoronal.Render()
@@ -657,12 +652,13 @@ class MPRViewer(object):
             sliceSpacing = self.resliceSagittal.GetOutput().GetSpacing()[2]
             cameraPosition = self.rendererSagittal.GetActiveCamera().GetPosition()
             focalPoint = self.rendererSagittal.GetActiveCamera().GetFocalPoint()
+
             if event == "MouseWheelForwardEvent":
                 # move the center point that we are slicing through
                 projectionVector = [focalPoint[i] - cameraPosition[i] for i in range(3)]
                 norm = vtk.vtkMath.Norm(projectionVector)
-                temp = [(sliceSpacing/norm) * projectionVector[i] for i in range(3)]
-                newPosition = [currentSphereWidgetCenter["sagittal"][i] + temp[i] for i in range(3)]
+                translationInterval = [(sliceSpacing/norm) * projectionVector[i] for i in range(3)]
+                newPosition = [currentSphereWidgetCenter["sagittal"][i] + translationInterval[i] for i in range(3)]
                 self.resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
@@ -670,17 +666,17 @@ class MPRViewer(object):
                 # move the center point that we are slicing through
                 invertProjectionVector = [cameraPosition[i] - focalPoint[i] for i in range(3)]
                 norm = vtk.vtkMath.Norm(invertProjectionVector)
-                temp = [(sliceSpacing/norm) * invertProjectionVector[i] for i in range(3)]
-                newPosition = [currentSphereWidgetCenter["sagittal"][i] + temp[i] for i in range(3)]
+                translationInterval = [(sliceSpacing/norm) * invertProjectionVector[i] for i in range(3)]
+                newPosition = [currentSphereWidgetCenter["sagittal"][i] + translationInterval[i] for i in range(3)]
                 self.resliceSagittal.GetResliceAxes().SetElement(0, 3, newPosition[0])
                 self.resliceSagittal.GetResliceAxes().SetElement(1, 3, newPosition[1])
                 self.resliceSagittal.GetResliceAxes().SetElement(2, 3, newPosition[2])
+
             # Set crosshair position in sagittal view
             self.setCrosshairPositionSagittalView(newPosition)
             # Set camera position in sagittal view
-            translationInterval = [newPosition[i] - currentSphereWidgetCenter["sagittal"][i] for i in range(3)]
-            cameraPosition = self.rendererSagittal.GetActiveCamera().GetPosition()
             self.rendererSagittal.GetActiveCamera().SetPosition([cameraPosition[i] + translationInterval[i] for i in range(3)])
+            self.rendererSagittal.GetActiveCamera().SetFocalPoint([focalPoint[i] + translationInterval[i] for i in range(3)])
 
             # Set crosshair position in axial view
             self.setCrosshairPositionAxialView(newPosition)
@@ -692,9 +688,9 @@ class MPRViewer(object):
             # Set crosshair position in coronal view
             self.setCrosshairPositionCoronalView(newPosition)
 
-            currentSphereWidgetCenter["axial"] = newPosition
-            currentSphereWidgetCenter["coronal"] = newPosition
-            currentSphereWidgetCenter["sagittal"] = newPosition
+            currentSphereWidgetCenter["axial"] = self.sphereWidgetAxial.GetCenter()
+            currentSphereWidgetCenter["sagittal"] = self.sphereWidgetCoronal.GetCenter()
+            currentSphereWidgetCenter["coronal"] = self.sphereWidgetSagittal.GetCenter()
 
             self.renderWindowAxial.Render()
             self.renderWindowCoronal.Render()
@@ -720,4 +716,4 @@ if __name__ == "__main__":
     path1 = "D:/workingspace/Python/dicom-data/1.2.840.113619.2.25.4.20352545.1711599249.29"
     # 281 dicoms
     path2 = "D:/workingspace/Python/dicom-data/220277460 Nguyen Thanh Dat"
-    mpr.show3DMPR(path_to_dir=path1)
+    mpr.show3DMPR(path_to_dir=path2)
